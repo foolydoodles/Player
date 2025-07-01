@@ -3,57 +3,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Twitch Clip Player</title>
+    <title>Hot Twitch Clips Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Simple reset to make the player fill the page */
         html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #000;
         }
-        #player {
-            width: 100%;
-            height: 100%;
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles to match the new theme */
+        .list-item:hover {
+            background-color: #374151; /* gray-700 */
+        }
+        .list-item.selected {
+            background-color: #4338ca; /* indigo-700 */
+            color: white;
+        }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
         }
     </style>
-    <!-- Load the Twitch Embed script -->
-    <script src="https://embed.twitch.tv/embed/v1.js"></script>
 </head>
-<body>
-    <div id="player"></div>
+<body class="bg-[#2f3136] text-gray-300">
 
-    <script type="text/javascript">
-        let player;
+    <div class="flex h-screen">
+        <!-- Left Column: Controls & Game List -->
+        <div class="flex flex-col w-64 bg-[#202225] p-3">
+            <header class="mb-4 px-2">
+                <h1 class="text-xl font-bold text-white">Twitch Clips</h1>
+            </header>
+            
+            <div class="flex flex-col mb-4">
+                <input type="text" id="gameName" class="w-full px-3 py-2 bg-[#2f3136] border border-gray-900 rounded-md focus:ring-indigo-500 focus:border-indigo-500 transition text-sm text-white" placeholder="Search for a game...">
+                <button id="getClipsBtn" class="w-full mt-2 px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500 transition-colors flex items-center justify-center gap-2">
+                    <svg id="fetch-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <span id="fetch-btn-text">Find Clips</span>
+                </button>
+            </div>
+            
+            <label class="block text-xs font-semibold text-gray-400 mb-2 px-2 uppercase tracking-wider">Searched Games</label>
+            <ul id="game-list" class="flex-grow space-y-1 pr-1 overflow-y-auto">
+                <li class="text-gray-500 italic text-center p-2 text-sm">No games searched yet.</li>
+            </ul>
+        </div>
 
-        // This function creates the Twitch player
-        function createPlayer(clipId) {
-            const options = {
-                width: '100%',
-                height: '100%',
-                clip: clipId,
-                autoplay: true,
-            };
+        <!-- Middle Column: Clip List -->
+        <div class="flex-1 flex flex-col bg-[#2f3136] border-l border-r border-black/20">
+             <header class="flex-shrink-0 p-4 border-b border-black/20">
+                 <p id="status-label" class="text-sm text-gray-400">Search for a game to see the latest hot clips.</p>
+             </header>
+             <div id="clips-list-container" class="flex-grow overflow-y-auto p-2 space-y-1">
+                 <!-- Clips will be rendered here -->
+             </div>
+        </div>
 
-            // If a player already exists, just change the clip
-            if (player) {
-                player.setClip(clipId);
-            } else {
-                player = new Twitch.Embed("player", options);
+        <!-- Right Column: Video Player -->
+        <div class="w-full max-w-2xl flex flex-col p-4 bg-[#2f3136]">
+            <div id="player-container" class="flex-grow border border-black/30 rounded-lg overflow-hidden bg-black relative">
+                <div id="video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-center text-gray-500">
+                    <p>Select a clip from the list to play it here.</p>
+                </div>
+                <!-- Iframe for the Twitch clip will be injected here -->
+            </div>
+             <a id="view-on-twitch-btn" href="#" target="_blank" rel="noopener noreferrer" class="hidden mt-4 w-full px-4 py-3 bg-indigo-600 text-white font-bold text-lg rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 transition-colors flex items-center justify-center gap-2">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 16 16"><path d="M3.857 0 1 2.857v10.286h3.429V16l2.857-2.857H9.57L14.714 8V0H3.857zm9.714 7.429-2.857 2.857H8.571L6.857 12V9.714H4.429V1.143h9.142v6.286z"/><path d="M6.286 3.429h1.143v3.429H6.286V3.429zm3.428 0h1.143v3.429H9.714V3.429z"/></svg>
+                 View on Twitch
+             </a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuration ---
+            const TWITCH_CLIENT_ID = 'yn4grhdnlp67flvqgf789mtfyn59oy';
+            const TWITCH_ACCESS_TOKEN = 'scietybbksfx4a0fn6gxy7tcxusbq5';
+
+            // --- DOM Elements ---
+            const getClipsBtn = document.getElementById('getClipsBtn');
+            const gameNameInput = document.getElementById('gameName');
+            const gameListEl = document.getElementById('game-list');
+            const clipsListContainer = document.getElementById('clips-list-container');
+            const statusLabel = document.getElementById('status-label');
+            const playerContainer = document.getElementById('player-container');
+            const videoPlaceholder = document.getElementById('video-placeholder');
+            const viewOnTwitchBtn = document.getElementById('view-on-twitch-btn');
+
+            // --- App State ---
+            let searchedGames = [];
+            let clipsData = [];
+            let selectedGameId = null;
+            let selectedClipId = null;
+            let isLoading = false;
+
+            // --- Event Listeners ---
+            getClipsBtn.addEventListener('click', () => fetchClipsForGame());
+            gameNameInput.addEventListener('keypress', (e) => e.key === 'Enter' && fetchClipsForGame());
+
+            gameListEl.addEventListener('click', (e) => {
+                const gameItem = e.target.closest('.list-item');
+                if (gameItem && !isLoading) {
+                    const gameId = gameItem.dataset.id;
+                    const gameName = gameItem.dataset.name;
+                    if (gameId !== selectedGameId) {
+                        fetchClipsForGame(gameName);
+                    }
+                }
+            });
+            
+            clipsListContainer.addEventListener('click', (e) => {
+                const clipItem = e.target.closest('.list-item');
+                if (clipItem) {
+                    const clipId = clipItem.dataset.id;
+                    const clip = clipsData.find(c => c.id === clipId);
+                    if (clip) {
+                        handleClipSelection(clip);
+                    }
+                }
+            });
+
+            // --- Main Functions ---
+            async function fetchClipsForGame(name = null) {
+                const gameName = name || gameNameInput.value.trim();
+                if (!gameName) {
+                    showStatus("Please enter a game name.", 'error');
+                    return;
+                }
+
+                setLoading(true);
+                showStatus(`Fetching clips for "${gameName}"...`);
+                clipsListContainer.innerHTML = ''; // Clear previous clips
+
+                try {
+                    const game = await getGame(gameName);
+                    if (!game) {
+                        showStatus(`Could not find a game called "${gameName}".`, 'error');
+                        return;
+                    }
+                    
+                    selectedGameId = game.id;
+                    updateSearchedGames(game);
+                    renderGameList();
+                    
+                    const clips = await getGameClips(game.id);
+                    clipsData = clips; // Store clips data
+                    
+                    if (clips.length === 0) {
+                        showStatus(`No popular clips found for "${game.name}" in the last week.`);
+                        clipsListContainer.innerHTML = `<p class="p-4 text-center text-gray-500 text-sm">No clips found.</p>`;
+                    } else {
+                        showStatus(`Found ${clips.length} clips for ${game.name}.`);
+                        renderClipList(clips);
+                    }
+
+                } catch (err) {
+                    console.error("Error fetching clips:", err);
+                    showStatus("An unexpected error occurred. Check the console.", 'error');
+                } finally {
+                    setLoading(false);
+                }
             }
-        }
 
-        // Listen for messages from the main application
-        window.addEventListener("message", (event) => {
-            // A basic security check to ensure the message is from a trusted source
-            // In a real app, you might want to make this more specific
-            if (event.data && event.data.type === 'PLAY_CLIP') {
-                const clipId = event.data.clipId;
-                createPlayer(clipId);
+            // --- API Functions ---
+            async function getGame(name) {
+                const url = `https://api.twitch.tv/helix/games?name=${encodeURIComponent(name)}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Client-ID': TWITCH_CLIENT_ID,
+                        'Authorization': `Bearer ${TWITCH_ACCESS_TOKEN}`
+                    }
+                });
+                if (!response.ok) throw new Error(`Twitch API error (getGame): ${response.statusText}`);
+                const data = await response.json();
+                return data.data.length > 0 ? { id: data.data[0].id, name: data.data[0].name } : null;
             }
-        }, false);
+
+            async function getGameClips(gameId) {
+                const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                const url = `https://api.twitch.tv/helix/clips?game_id=${gameId}&first=50&started_at=${sevenDaysAgo}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Client-ID': TWITCH_CLIENT_ID,
+                        'Authorization': `Bearer ${TWITCH_ACCESS_TOKEN}`
+                    }
+                });
+                if (!response.ok) throw new Error(`Twitch API error (getGameClips): ${response.statusText}`);
+                const data = await response.json();
+                // Sort by view count descending
+                return data.data.sort((a, b) => b.view_count - a.view_count);
+            }
+
+            // --- Rendering & UI ---
+            function renderGameList() {
+                gameListEl.innerHTML = '';
+                if (searchedGames.length === 0) {
+                     gameListEl.innerHTML = `<li class="text-gray-500 italic text-center p-2 text-sm">No games searched yet.</li>`;
+                     return;
+                }
+                searchedGames.forEach(game => {
+                    const li = document.createElement('li');
+                    li.className = 'list-item p-2 rounded-md cursor-pointer transition-colors flex items-center gap-2';
+                    li.dataset.id = game.id;
+                    li.dataset.name = game.name;
+                    if (game.id === selectedGameId) li.classList.add('selected');
+                    li.innerHTML = `<span class="text-gray-500 font-bold text-lg">#</span><span class="text-gray-300 font-medium">${game.name}</span>`;
+                    gameListEl.appendChild(li);
+                });
+            }
+            
+            function renderClipList(clips) {
+                clipsListContainer.innerHTML = '';
+                clips.forEach(clip => {
+                    const div = document.createElement('div');
+                    div.className = 'list-item p-3 rounded-lg cursor-pointer border-l-4 border-transparent';
+                    div.dataset.id = clip.id;
+                    if (clip.id === selectedClipId) div.classList.add('selected');
+                    div.innerHTML = `
+                        <p class="font-semibold text-gray-200 leading-tight truncate" title="${clip.title}">${clip.title}</p>
+                        <div class="flex justify-between items-center mt-1">
+                            <p class="text-xs text-gray-400">by ${clip.broadcaster_name}</p>
+                            <p class="text-xs text-gray-500">${clip.view_count.toLocaleString()} views</p>
+                        </div>
+                    `;
+                    clipsListContainer.appendChild(div);
+                });
+            }
+
+            function handleClipSelection(clip) {
+                selectedClipId = clip.id;
+                
+                // Re-render clip list to show selection
+                renderClipList(clipsData);
+
+                videoPlaceholder.classList.add('hidden');
+                viewOnTwitchBtn.classList.remove('hidden');
+                viewOnTwitchBtn.href = clip.url;
+
+                // Clear previous player
+                const oldIframe = playerContainer.querySelector('iframe');
+                if (oldIframe) oldIframe.remove();
+
+                const iframe = document.createElement('iframe');
+                // FIX: Using a more robust parent domain for sandboxed environments.
+                iframe.src = `${clip.embed_url}&parent=www-widgetapi-com.google.com&autoplay=true`;
+                iframe.setAttribute('height', '100%');
+                iframe.setAttribute('width', '100%');
+                iframe.setAttribute('allowfullscreen', 'true');
+                iframe.setAttribute('allow', 'autoplay');
+                playerContainer.appendChild(iframe);
+            }
+
+            function updateSearchedGames(game) {
+                // Remove if already exists to move it to the top
+                searchedGames = searchedGames.filter(g => g.id !== game.id);
+                searchedGames.unshift(game); // Add to the beginning
+                if (searchedGames.length > 10) searchedGames.pop(); // Keep list size manageable
+            }
+
+            function setLoading(state) {
+                isLoading = state;
+                getClipsBtn.disabled = state;
+                document.getElementById('fetch-btn-text').textContent = state ? 'Searching...' : 'Find Clips';
+                if (state) {
+                    gameNameInput.value = '';
+                }
+            }
+
+            function showStatus(message, type = 'info') {
+                statusLabel.textContent = message;
+                statusLabel.className = 'text-sm';
+                if (type === 'error') {
+                    statusLabel.classList.add('text-red-400');
+                } else {
+                    statusLabel.classList.add('text-gray-400');
+                }
+            }
+            
+            // --- Initial Render ---
+            renderGameList();
+        });
     </script>
 </body>
 </html>
