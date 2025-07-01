@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Clip Player</title>
+    <style>
+        /* Simple reset to make the player fill the page */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    <!-- Load the Twitch Embed script -->
+    <script src="https://embed.twitch.tv/embed/v1.js"></script>
+</head>
+<body>
+    <div id="player"></div>
+
+    <script type="text/javascript">
+        let player;
+
+        // This function creates the Twitch player
+        function createPlayer(clipId) {
+            const options = {
+                width: '100%',
+                height: '100%',
+                clip: clipId,
+                autoplay: true,
+            };
+
+            // If a player already exists, just change the clip
+            if (player) {
+                player.setClip(clipId);
+            } else {
+                player = new Twitch.Embed("player", options);
+            }
+        }
+
+        // Listen for messages from the main application
+        window.addEventListener("message", (event) => {
+            // A basic security check to ensure the message is from a trusted source
+            // In a real app, you might want to make this more specific
+            if (event.data && event.data.type === 'PLAY_CLIP') {
+                const clipId = event.data.clipId;
+                createPlayer(clipId);
+            }
+        }, false);
+    </script>
+</body>
+</html>
