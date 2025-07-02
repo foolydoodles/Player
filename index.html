@@ -103,7 +103,7 @@
             let isLoadingMore = false;
             let currentFeedUrl = '';
             let intersectionObserver;
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            let isFirstVideoOfFeed = true;
 
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
@@ -155,6 +155,7 @@
                 videoContainer.innerHTML = '';
                 currentAfterToken = null;
                 isLoadingMore = false;
+                isFirstVideoOfFeed = true;
             }
 
             function appendVideos(videos) {
@@ -264,7 +265,7 @@
 
                 const options = {
                     root: videoContainer,
-                    threshold: 0.6
+                    threshold: 0.5
                 };
 
                 const callback = (entries) => {
@@ -274,21 +275,23 @@
                             hlsInstances.forEach(hls => hls.destroy());
                             hlsInstances = [];
                             
+                            const playVideo = () => {
+                                if (isFirstVideoOfFeed) {
+                                    isFirstVideoOfFeed = false;
+                                    return;
+                                }
+                                video.play().catch(e => console.log("Autoplay was prevented."));
+                            };
+
                             if (Hls.isSupported()) {
                                 const hls = new Hls();
                                 hls.loadSource(video.dataset.hlsUrl);
                                 hls.attachMedia(video);
-                                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                                    if (!isMobile) {
-                                        video.play().catch(e => console.log("Autoplay was prevented."));
-                                    }
-                                });
+                                hls.on(Hls.Events.MANIFEST_PARSED, playVideo);
                                 hlsInstances.push(hls);
                             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                                 video.src = video.dataset.hlsUrl;
-                                if (!isMobile) {
-                                    video.play().catch(e => console.log("Autoplay was prevented."));
-                                }
+                                playVideo();
                             }
                             
                             const allSlides = Array.from(videoContainer.querySelectorAll('.video-slide'));
