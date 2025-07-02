@@ -98,7 +98,7 @@
                 
                 showStatus(`Fetching videos from r/${subreddit}...`);
                 clearFeed();
-                currentFeedUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=25`;
+                currentFeedUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=15`; // Smaller limit for faster initial load
                 
                 try {
                     const response = await fetch(currentFeedUrl);
@@ -132,8 +132,7 @@
                 clearFeed();
 
                 try {
-                    // Step 1: Find what subreddits are currently popular for videos
-                    const popularResponse = await fetch(`https://www.reddit.com/r/popular.json?limit=100`);
+                    const popularResponse = await fetch(`https://www.reddit.com/r/popular.json?limit=50`);
                     if (!popularResponse.ok) throw new Error('Failed to discover popular subs.');
                     const popularData = await popularResponse.json();
 
@@ -149,11 +148,8 @@
                         return;
                     }
                     
-                    showStatus(`Found popular subs: ${popularVideoSubs.slice(0, 3).join(', ')}... Fetching videos.`);
-
-                    // Step 2: Fetch videos from these dynamically found subreddits
                     const multiReddit = popularVideoSubs.join('+');
-                    currentFeedUrl = `https://www.reddit.com/r/${multiReddit}/hot.json?limit=50`;
+                    currentFeedUrl = `https://www.reddit.com/r/${multiReddit}/hot.json?limit=25`; // Fetch a decent number for shuffling
 
                     const feedResponse = await fetch(currentFeedUrl);
                     if (!feedResponse.ok) throw new Error('Failed to fetch video feed from popular subs.');
@@ -165,7 +161,6 @@
                         .map(post => post.data)
                         .filter(post => post.is_video && post.media?.reddit_video);
 
-                    // Shuffle for variety
                     for (let i = allVideos.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [allVideos[i], allVideos[j]] = [allVideos[j], allVideos[i]];
@@ -205,9 +200,9 @@
                     const video = document.createElement('video');
                     video.loop = true;
                     video.muted = false;
-                    video.controls = false; // Hide native controls
+                    video.controls = false;
                     video.preload = 'metadata';
-                    video.poster = videoData.thumbnail; // Set the thumbnail as a poster
+                    video.poster = videoData.thumbnail;
                     video.dataset.hlsUrl = videoData.media.reddit_video.hls_url;
                     
                     const infoOverlay = `
