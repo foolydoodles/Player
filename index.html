@@ -84,8 +84,6 @@
             let currentFeedUrl = '';
             let intersectionObserver;
 
-            const popularSubreddits = ['videos', 'funny', 'aww', 'MadeMeSmile', 'nextfuckinglevel', 'interestingasfuck', 'Unexpected'];
-
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
                 statusToast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-600' : 'bg-blue-600'}`;
@@ -130,23 +128,44 @@
             }
             
             async function fetchPopularFeed() {
-                showStatus(`Fetching popular feed...`);
+                showStatus(`Finding popular video subreddits...`);
                 clearFeed();
-                const multiReddit = popularSubreddits.join('+');
-                currentFeedUrl = `https://www.reddit.com/r/${multiReddit}/hot.json?limit=25`;
 
                 try {
-                    const response = await fetch(currentFeedUrl);
-                    if (!response.ok) throw new Error('Failed to fetch popular feed.');
+                    // Step 1: Find what subreddits are currently popular for videos
+                    const popularResponse = await fetch(`https://www.reddit.com/r/popular.json?limit=100`);
+                    if (!popularResponse.ok) throw new Error('Failed to discover popular subs.');
+                    const popularData = await popularResponse.json();
 
-                    const data = await response.json();
-                    currentAfterToken = data.data.after;
-                    
-                    let allVideos = data.data.children
+                    const videoPosts = popularData.data.children
                         .map(post => post.data)
                         .filter(post => post.is_video && post.media?.reddit_video);
 
-                    // Shuffle the combined array for a mixed feed
+                    const popularVideoSubs = [...new Set(videoPosts.map(post => post.subreddit))];
+
+                    if (popularVideoSubs.length === 0) {
+                        showStatus("Couldn't find any popular video subreddits right now.", true);
+                        videoContainer.appendChild(placeholder);
+                        return;
+                    }
+                    
+                    showStatus(`Found popular subs: ${popularVideoSubs.slice(0, 3).join(', ')}... Fetching videos.`);
+
+                    // Step 2: Fetch videos from these dynamically found subreddits
+                    const multiReddit = popularVideoSubs.join('+');
+                    currentFeedUrl = `https://www.reddit.com/r/${multiReddit}/hot.json?limit=50`;
+
+                    const feedResponse = await fetch(currentFeedUrl);
+                    if (!feedResponse.ok) throw new Error('Failed to fetch video feed from popular subs.');
+                    
+                    const feedData = await feedResponse.json();
+                    currentAfterToken = feedData.data.after;
+                    
+                    let allVideos = feedData.data.children
+                        .map(post => post.data)
+                        .filter(post => post.is_video && post.media?.reddit_video);
+
+                    // Shuffle for variety
                     for (let i = allVideos.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [allVideos[i], allVideos[j]] = [allVideos[j], allVideos[i]];
