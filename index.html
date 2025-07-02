@@ -4,40 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TikTok Style Reddit Browser</title>
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HLS.js for video streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- Google Fonts for a clean look -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Basic styling for the full-screen video container */
         html, body {
             height: 100%;
-            overflow: hidden;
+            overflow: hidden; /* Prevents scrolling the whole page */
             background-color: #000;
         }
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* The main container for the video slides */
         #video-container {
             height: 100vh;
             width: 100vw;
             overflow-y: scroll;
-            scroll-snap-type: y mandatory;
+            scroll-snap-type: y mandatory; /* This creates the TikTok-like scroll snapping */
             scroll-behavior: smooth;
         }
+        /* Each individual video slide */
         .video-slide {
             height: 100vh;
             width: 100%;
-            scroll-snap-align: start;
+            scroll-snap-align: start; /* Aligns each slide to the top on snap */
             position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
         }
+        /* Video element styling */
         video {
             max-width: 100%;
             max-height: 100%;
             width: auto;
             height: auto;
+            border-radius: 8px; /* Slightly rounded corners for videos */
         }
+        /* Play icon overlay shown when video is paused */
         .play-overlay {
             display: none;
             position: absolute;
@@ -50,32 +59,49 @@
             border-radius: 50%;
             justify-content: center;
             align-items: center;
-            pointer-events: none;
+            pointer-events: none; /* Allows clicks to pass through to the video */
         }
         .video-slide.paused .play-overlay {
-            display: flex;
+            display: flex; /* Show the overlay only when the 'paused' class is present */
         }
     </style>
 </head>
 <body class="bg-black text-white">
 
-    <!-- Search Header -->
-    <header class="fixed top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/70 to-transparent">
-        <div class="max-w-md mx-auto relative">
-            <div class="flex gap-2 items-center">
-                <button id="home-btn" title="Back to Popular Feed" class="flex-shrink-0 bg-gray-800/80 p-2 rounded-full hover:bg-purple-600 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                    </svg>
-                </button>
-                <input type="text" id="subreddit-input" placeholder="Search Reddit videos or subreddits..." class="flex-grow w-full px-4 py-2 bg-gray-800/80 border border-gray-700 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-sm text-white backdrop-blur-sm">
+    <!-- Left Side Hover Buttons -->
+    <div class="fixed top-1/2 -translate-y-1/2 left-4 z-20 flex flex-col gap-4">
+        <!-- Home Button -->
+        <button id="home-btn" title="Back to Popular Feed" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
+        </button>
+        <!-- Search Button -->
+        <button id="search-btn" title="Open Search" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="search-modal" class="fixed inset-0 z-30 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
+        <div class="w-full max-w-md relative">
+            <button id="close-search-btn" class="absolute -top-2 -right-2 text-white bg-gray-700 rounded-full p-1 hover:bg-red-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="relative">
+                <input type="text" id="subreddit-input" placeholder="Search Reddit videos or subreddits..." class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-white">
+                <div id="suggestions-box" class="absolute top-full mt-2 w-full bg-gray-800 rounded-lg shadow-lg overflow-hidden hidden"></div>
             </div>
-            <div id="suggestions-box" class="absolute top-full mt-2 w-full bg-gray-800 rounded-lg shadow-lg overflow-hidden hidden"></div>
         </div>
-    </header>
+    </div>
 
     <!-- Main Video Container -->
     <main id="video-container">
+        <!-- Initial placeholder shown while loading -->
         <div id="placeholder" class="video-slide text-center text-gray-400">
             <div>
                 <h1 class="text-3xl font-bold">Reddit Video Feed</h1>
@@ -84,20 +110,27 @@
         </div>
     </main>
     
-    <!-- Status Toast -->
+    <!-- Status Toast for notifications -->
     <div id="status-toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-300">
         Status message
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const subredditInput = document.getElementById('subreddit-input');
+            // Get references to all necessary DOM elements
             const videoContainer = document.getElementById('video-container');
             const placeholder = document.getElementById('placeholder');
             const statusToast = document.getElementById('status-toast');
             const homeBtn = document.getElementById('home-btn');
+            
+            // Search elements
+            const searchBtn = document.getElementById('search-btn');
+            const searchModal = document.getElementById('search-modal');
+            const closeSearchBtn = document.getElementById('close-search-btn');
+            const subredditInput = document.getElementById('subreddit-input');
             const suggestionsBox = document.getElementById('suggestions-box');
             
+            // State variables
             let hlsInstances = [];
             let currentAfterToken = null;
             let isLoadingMore = false;
@@ -105,6 +138,7 @@
             let intersectionObserver;
             let isFirstVideoOfFeed = true;
 
+            // Function to show a status message (toast)
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
                 statusToast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-600' : 'bg-blue-600'}`;
@@ -114,6 +148,7 @@
                 }, 3000);
             }
             
+            // Fetches videos from a given Reddit API URL
             async function fetchVideos(url, isNewFeed = false) {
                 if (isNewFeed) {
                     clearFeed();
@@ -126,10 +161,10 @@
                     if (!response.ok) throw new Error(`Could not fetch videos. Subreddit may be private or invalid.`);
                     
                     const data = await response.json();
-                    currentAfterToken = data.data.after;
+                    currentAfterToken = data.data.after; // For pagination
                     const videos = data.data.children
                         .map(post => post.data)
-                        .filter(post => post.is_video && post.media?.reddit_video);
+                        .filter(post => post.is_video && post.media?.reddit_video); // Filter for posts with videos
 
                     if (videos.length === 0) {
                         if (isNewFeed) showStatus(`No videos found.`, true);
@@ -148,6 +183,7 @@
                 }
             }
 
+            // Clears the current video feed and resets state
             function clearFeed() {
                 if (intersectionObserver) intersectionObserver.disconnect();
                 hlsInstances.forEach(hls => hls.destroy());
@@ -158,6 +194,7 @@
                 isFirstVideoOfFeed = true;
             }
 
+            // Appends new video slides to the container
             function appendVideos(videos) {
                 videos.forEach(videoData => {
                     const slide = document.createElement('div');
@@ -168,13 +205,14 @@
                     video.muted = false;
                     video.controls = false;
                     video.preload = 'metadata';
-                    video.poster = videoData.thumbnail;
+                    video.poster = videoData.thumbnail; // Thumbnail for faster loading feel
                     video.dataset.hlsUrl = videoData.media.reddit_video.hls_url;
                     
                     const playOverlay = document.createElement('div');
                     playOverlay.className = 'play-overlay';
                     playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
 
+                    // Information overlay with title and subreddit
                     const infoOverlay = `
                         <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white pointer-events-none">
                             <h3 class="font-bold text-lg">${videoData.title}</h3>
@@ -184,17 +222,19 @@
                     const buttonContainer = document.createElement('div');
                     buttonContainer.className = 'absolute top-1/2 -translate-y-1/2 right-4 flex flex-col gap-4';
 
+                    // Download button
                     const downloadLink = document.createElement('a');
-                    downloadLink.href = `https://viddit.io/?url=https://www.reddit.com${videoData.permalink}`;
+                    downloadLink.href = `https://viddit.io/download?url=https://www.reddit.com${videoData.permalink}`;
                     downloadLink.target = "_blank";
                     downloadLink.rel = "noopener noreferrer";
                     downloadLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>`;
                     downloadLink.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
                     downloadLink.onclick = (e) => {
-                        e.stopPropagation();
+                        e.stopPropagation(); // Prevent the click from toggling play/pause
                         showStatus("Opening download page...");
                     };
 
+                    // Mute/Unmute button
                     const muteButton = document.createElement('button');
                     const unmutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15z" /></svg>`;
                     const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
@@ -209,6 +249,7 @@
                     buttonContainer.appendChild(downloadLink);
                     buttonContainer.appendChild(muteButton);
 
+                    // Click listener on the slide to toggle play/pause
                     slide.addEventListener('click', (e) => {
                         if (e.target.closest('button') || e.target.closest('a')) return;
                         if (video.paused) {
@@ -218,9 +259,11 @@
                         }
                     });
 
+                    // Update slide class based on video state
                     video.onplay = () => slide.classList.remove('paused');
                     video.onpause = () => slide.classList.add('paused');
 
+                    // Assemble the slide
                     slide.appendChild(video);
                     slide.appendChild(playOverlay);
                     slide.insertAdjacentHTML('beforeend', infoOverlay);
@@ -229,6 +272,7 @@
                 });
             }
             
+            // Loads the next page of videos
             async function loadMoreVideos() {
                 if (isLoadingMore || !currentAfterToken) return;
 
@@ -247,10 +291,10 @@
 
                     if (newVideos.length > 0) {
                         appendVideos(newVideos);
-                        setupIntersectionObserver();
+                        setupIntersectionObserver(); // Re-setup observer for new elements
                     } else {
                         showStatus("No more videos to load.");
-                        currentAfterToken = null;
+                        currentAfterToken = null; // Stop trying to load more
                     }
                 } catch (error) {
                     console.error("Load more error:", error);
@@ -260,29 +304,33 @@
                 }
             }
 
+            // Sets up the Intersection Observer to detect which video is on screen
             function setupIntersectionObserver() {
                 if (intersectionObserver) intersectionObserver.disconnect();
 
                 const options = {
                     root: videoContainer,
-                    threshold: 0.5
+                    threshold: 0.5 // Trigger when 50% of the video is visible
                 };
 
                 const callback = (entries) => {
                     entries.forEach(entry => {
                         const video = entry.target.querySelector('video');
                         if (entry.isIntersecting) {
+                            // Destroy old HLS instances to save memory
                             hlsInstances.forEach(hls => hls.destroy());
                             hlsInstances = [];
                             
                             const playVideo = () => {
+                                // Don't autoplay the very first video of a new feed
                                 if (isFirstVideoOfFeed) {
                                     isFirstVideoOfFeed = false;
                                     return;
                                 }
                                 video.play().catch(e => console.log("Autoplay was prevented."));
                             };
-
+                            
+                            // Use HLS.js to play the video stream
                             if (Hls.isSupported()) {
                                 const hls = new Hls();
                                 hls.loadSource(video.dataset.hlsUrl);
@@ -294,6 +342,7 @@
                                 playVideo();
                             }
                             
+                            // Check if we need to load more videos
                             const allSlides = Array.from(videoContainer.querySelectorAll('.video-slide'));
                             const currentIndex = allSlides.indexOf(entry.target);
                             if (currentIndex >= allSlides.length - 2) {
@@ -301,6 +350,7 @@
                             }
 
                         } else {
+                            // Pause video when it's not on screen
                             video.pause();
                         }
                     });
@@ -313,23 +363,28 @@
                     }
                 });
             }
-
+            
+            // Handles a general search
             async function handleSearch() {
                 const query = subredditInput.value.trim();
                 if (!query) return;
                 
-                const searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=relevance&t=all`;
+                const searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=relevance&t=all&limit=50`;
                 await fetchVideos(searchUrl, true);
+                searchModal.classList.add('hidden'); // Close modal after search
             }
-
+            
+            // Handles clicking a subreddit suggestion
             async function handleSuggestionClick(subreddit) {
                 subredditInput.value = subreddit;
                 suggestionsBox.innerHTML = '';
                 suggestionsBox.classList.add('hidden');
-                const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=25`;
+                const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=50`;
                 await fetchVideos(url, true);
+                searchModal.classList.add('hidden'); // Close modal after selection
             }
 
+            // Fetches and displays subreddit name suggestions
             async function updateSuggestions() {
                 const query = subredditInput.value.trim();
                 if (query.length < 2) {
@@ -359,26 +414,40 @@
                     console.error("Suggestion fetch error:", error);
                 }
             }
+            
+            // --- Event Listeners ---
 
+            // Search Modal Listeners
+            searchBtn.addEventListener('click', () => {
+                searchModal.classList.remove('hidden');
+                subredditInput.focus();
+            });
+
+            closeSearchBtn.addEventListener('click', () => {
+                searchModal.classList.add('hidden');
+            });
+            
+            searchModal.addEventListener('click', (e) => {
+                // Close modal if clicking on the background overlay
+                if (e.target === searchModal) {
+                    searchModal.classList.add('hidden');
+                }
+            });
+
+            // Search Input Listeners
             subredditInput.addEventListener('input', updateSuggestions);
             subredditInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     handleSearch();
-                    suggestionsBox.classList.add('hidden');
                 }
             });
             
+            // Home Button Listener
             homeBtn.addEventListener('click', () => {
                  fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
             });
 
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.max-w-md')) {
-                    suggestionsBox.classList.add('hidden');
-                }
-            });
-
-            // Load the popular feed on startup
+            // Initial load of the popular feed on startup
             fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
         });
     </script>
