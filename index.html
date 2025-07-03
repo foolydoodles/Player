@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>TikTok Style Reddit Browser</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -45,37 +45,41 @@
 
         /* The main container for the video slides */
         #video-container {
-            height: 100%; /* Fill the app-container */
-            width: 100%; /* Fill the app-container */
-            overflow-y: scroll;
-            scroll-behavior: smooth;
-            /* Hide scrollbar for IE, Edge and Firefox */
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
-
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        #video-container::-webkit-scrollbar {
-            display: none;
+            height: 100%;
+            width: 100%;
+            overflow: hidden; /* We will control visibility via JS */
+            position: relative;
         }
 
         /* Each individual video slide */
         .video-slide {
             height: 100%;
             width: 100%;
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-shrink: 0; /* Prevent slides from shrinking */
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .video-slide.active {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 2;
         }
 
         /* Video element styling */
         video {
             max-width: 100%;
             max-height: 100%;
-            width: 100%; /* Make video fill the container width */
-            height: 100%; /* Make video fill the container height */
+            width: 100%;
+            height: 100%;
             object-fit: cover; /* Cover the area, cropping if necessary */
         }
 
@@ -96,7 +100,7 @@
         }
 
         .video-slide.paused .play-overlay {
-            display: flex; /* Show the overlay only when the 'paused' class is present */
+            display: flex;
         }
 
         /* Comments Modal Scrollbar */
@@ -117,28 +121,20 @@
 </head>
 <body class="text-white">
 
-    <!-- This new container will hold the app and enforce the aspect ratio -->
     <div id="app-container">
         <!-- Top Left Buttons -->
-        <div class="absolute top-4 left-4 z-20 flex flex-col gap-4">
-            <!-- Home Button -->
+        <div class="absolute top-4 left-4 z-30 flex flex-col gap-4">
             <button id="home-btn" title="Back to Popular Feed" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
             </button>
-            <!-- Search Button -->
             <button id="search-btn" title="Open Search" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
             </button>
         </div>
         
         <!-- Main Video Container -->
         <main id="video-container">
-            <!-- Initial placeholder shown while loading -->
-            <div id="placeholder" class="video-slide text-center text-gray-400">
+            <div id="placeholder" class="video-slide active text-center text-gray-400">
                 <div>
                     <h1 class="text-3xl font-bold">Reddit Video Feed</h1>
                     <p class="mt-2">Loading popular videos...</p>
@@ -147,13 +143,11 @@
         </main>
     </div>
 
-    <!-- Search Modal (remains outside app-container to overlay the whole screen) -->
-    <div id="search-modal" class="fixed inset-0 z-30 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
+    <!-- Search Modal -->
+    <div id="search-modal" class="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
         <div class="w-full max-w-md relative">
             <button id="close-search-btn" class="absolute -top-2 -right-2 text-white bg-gray-700 rounded-full p-1 hover:bg-red-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <div class="relative">
                 <input type="text" id="subreddit-input" placeholder="Search Reddit videos or subreddits..." class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-white">
@@ -163,65 +157,50 @@
     </div>
 
     <!-- Comments Modal -->
-    <div id="comments-modal" class="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
+    <div id="comments-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
         <div class="w-full max-w-lg h-3/4 bg-gray-900 rounded-lg shadow-xl flex flex-col relative">
             <button id="close-comments-btn" class="absolute -top-2 -right-2 text-white bg-gray-700 rounded-full p-1 hover:bg-red-500 transition-colors z-10">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 class="text-xl font-bold p-4 border-b border-gray-700">Comments</h2>
-            <div id="comments-container" class="flex-grow p-4 overflow-y-auto">
-                <!-- Comments will be loaded here -->
-            </div>
+            <div id="comments-container" class="flex-grow p-4 overflow-y-auto"></div>
         </div>
     </div>
 
-    <!-- Status Toast (remains outside to overlay the whole screen) -->
+    <!-- Status Toast -->
     <div id="status-toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 z-50">
         Status message
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Get references to all necessary DOM elements
             const videoContainer = document.getElementById('video-container');
-            const placeholder = document.getElementById('placeholder');
             const statusToast = document.getElementById('status-toast');
             const homeBtn = document.getElementById('home-btn');
-            
-            // Search elements
             const searchBtn = document.getElementById('search-btn');
             const searchModal = document.getElementById('search-modal');
             const closeSearchBtn = document.getElementById('close-search-btn');
             const subredditInput = document.getElementById('subreddit-input');
             const suggestionsBox = document.getElementById('suggestions-box');
-
-            // Comments elements
             const commentsModal = document.getElementById('comments-modal');
             const closeCommentsBtn = document.getElementById('close-comments-btn');
             const commentsContainer = document.getElementById('comments-container');
             
-            // State variables
-            let hlsInstances = [];
+            let hlsInstances = {};
             let currentAfterToken = null;
             let isLoadingMore = false;
             let currentFeedUrl = '';
-            let intersectionObserver;
-            let isFirstVideoOfFeed = true;
-            let scrollTimeout;
+            let currentIndex = 0;
+            let isNavigating = false;
+            let touchStartY = 0;
 
-            // Function to show a status message (toast)
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
                 statusToast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-blue-600'}`;
                 statusToast.classList.remove('opacity-0');
-                setTimeout(() => {
-                    statusToast.classList.add('opacity-0');
-                }, 3000);
+                setTimeout(() => statusToast.classList.add('opacity-0'), 3000);
             }
             
-            // Fetches videos from a given Reddit API URL
             async function fetchVideos(url, isNewFeed = false) {
                 if (isNewFeed) {
                     clearFeed();
@@ -231,47 +210,49 @@
 
                 try {
                     const response = await fetch(currentFeedUrl);
-                    if (!response.ok) throw new Error(`Could not fetch videos. Subreddit may be private or invalid.`);
+                    if (!response.ok) throw new Error(`Could not fetch videos.`);
                     
                     const data = await response.json();
-                    currentAfterToken = data.data.after; // For pagination
+                    currentAfterToken = data.data.after;
                     const videos = data.data.children
                         .map(post => post.data)
-                        .filter(post => post.is_video && post.media?.reddit_video); // Filter for posts with videos
+                        .filter(post => post.is_video && post.media?.reddit_video);
 
                     if (videos.length === 0) {
                         if (isNewFeed) showStatus(`No videos found.`, true);
-                        if (videoContainer.childElementCount === 0) videoContainer.appendChild(placeholder);
                         return;
                     }
                     
-                    if (isNewFeed) placeholder.remove();
+                    if (isNewFeed && document.getElementById('placeholder')) {
+                        document.getElementById('placeholder').remove();
+                    }
                     appendVideos(videos);
-                    if (isNewFeed) setupIntersectionObserver();
+                    if (isNewFeed) {
+                        showSlide(0);
+                    }
                     if (isNewFeed) showStatus(`Loaded ${videos.length} videos.`);
 
                 } catch (error) {
                     console.error('Fetch error:', error);
                     showStatus(error.message, true);
-                    if (isNewFeed && videoContainer.childElementCount === 0) videoContainer.appendChild(placeholder);
                 }
             }
 
-            // Clears the current video feed and resets state
             function clearFeed() {
-                if (intersectionObserver) intersectionObserver.disconnect();
-                hlsInstances.forEach(hls => hls.destroy());
-                hlsInstances = [];
+                Object.values(hlsInstances).forEach(hls => hls.destroy());
+                hlsInstances = {};
                 videoContainer.innerHTML = '';
                 currentAfterToken = null;
                 isLoadingMore = false;
-                isFirstVideoOfFeed = true;
+                currentIndex = 0;
+                videoContainer.innerHTML = `<div id="placeholder" class="video-slide active text-center text-gray-400"><div><h1 class="text-3xl font-bold">Reddit Video Feed</h1><p class="mt-2">Loading popular videos...</p></div></div>`;
             }
 
-            // Appends new video slides to the container
             function appendVideos(videos) {
-                videos.forEach(videoData => {
+                videos.forEach((videoData, i) => {
                     const slide = document.createElement('div');
+                    const slideId = `slide-${Date.now()}-${i}`;
+                    slide.id = slideId;
                     slide.className = 'video-slide paused';
 
                     const video = document.createElement('video');
@@ -286,28 +267,19 @@
                     playOverlay.className = 'play-overlay';
                     playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
 
-                    const infoOverlay = `
-                        <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white pointer-events-none">
-                            <h3 class="font-bold text-lg">${videoData.title}</h3>
-                            <p class="text-sm text-gray-300">r/${videoData.subreddit}</p>
-                        </div>`;
+                    const infoOverlay = `<div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white pointer-events-none"><h3 class="font-bold text-lg">${videoData.title}</h3><p class="text-sm text-gray-300">r/${videoData.subreddit}</p></div>`;
                     
                     const buttonContainer = document.createElement('div');
-                    buttonContainer.className = 'absolute bottom-20 right-4 flex flex-col gap-4';
+                    buttonContainer.className = 'absolute bottom-20 right-4 flex flex-col gap-4 z-10';
 
-                    // Download button
                     const downloadLink = document.createElement('a');
                     downloadLink.href = `https://viddit.io/download?url=https://www.reddit.com${videoData.permalink}`;
                     downloadLink.target = "_blank";
                     downloadLink.rel = "noopener noreferrer";
                     downloadLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>`;
                     downloadLink.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
-                    downloadLink.onclick = (e) => {
-                        e.stopPropagation();
-                        showStatus("Opening download page...");
-                    };
+                    downloadLink.onclick = (e) => e.stopPropagation();
 
-                    // Mute/Unmute button
                     const muteButton = document.createElement('button');
                     const unmutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15z" /></svg>`;
                     const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
@@ -319,7 +291,6 @@
                         muteButton.innerHTML = video.muted ? mutedIcon : unmutedIcon;
                     };
                     
-                    // Comments button
                     const commentsButton = document.createElement('button');
                     commentsButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>`;
                     commentsButton.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
@@ -328,31 +299,21 @@
                         fetchAndShowComments(videoData.permalink);
                     };
 
-                    buttonContainer.appendChild(downloadLink);
-                    buttonContainer.appendChild(muteButton);
-                    buttonContainer.appendChild(commentsButton);
-
+                    buttonContainer.append(downloadLink, muteButton, commentsButton);
+                    slide.append(video, playOverlay, buttonContainer);
+                    slide.insertAdjacentHTML('beforeend', infoOverlay);
+                    
                     slide.addEventListener('click', (e) => {
                         if (e.target.closest('button') || e.target.closest('a')) return;
-                        if (video.paused) {
-                            video.play().catch(err => console.log("Play interrupted"));
-                        } else {
-                            video.pause();
-                        }
+                        video.paused ? video.play() : video.pause();
                     });
-
                     video.onplay = () => slide.classList.remove('paused');
                     video.onpause = () => slide.classList.add('paused');
-
-                    slide.appendChild(video);
-                    slide.appendChild(playOverlay);
-                    slide.insertAdjacentHTML('beforeend', infoOverlay);
-                    slide.appendChild(buttonContainer);
+                    
                     videoContainer.appendChild(slide);
                 });
             }
             
-            // Loads the next page of videos
             async function loadMoreVideos() {
                 if (isLoadingMore || !currentAfterToken) return;
                 isLoadingMore = true;
@@ -366,67 +327,79 @@
                         .map(post => post.data)
                         .filter(post => post.is_video && post.media?.reddit_video);
 
-                    if (newVideos.length > 0) {
-                        appendVideos(newVideos);
-                        setupIntersectionObserver();
-                    } else {
+                    if (newVideos.length > 0) appendVideos(newVideos);
+                    else {
                         showStatus("No more videos to load.");
                         currentAfterToken = null;
                     }
                 } catch (error) {
                     console.error("Load more error:", error);
-                    showStatus("Failed to load more videos.", true);
+                    showStatus(error.message, true);
                 } finally {
                     isLoadingMore = false;
                 }
             }
 
-            // Sets up the Intersection Observer
-            function setupIntersectionObserver() {
-                if (intersectionObserver) intersectionObserver.disconnect();
-                const options = { root: videoContainer, threshold: 0.5 };
-                const callback = (entries) => {
-                    entries.forEach(entry => {
-                        const video = entry.target.querySelector('video');
-                        if (entry.isIntersecting) {
-                            hlsInstances.forEach(hls => hls.destroy());
-                            hlsInstances = [];
-                            const playVideo = () => {
-                                if (isFirstVideoOfFeed) {
-                                    isFirstVideoOfFeed = false;
-                                    return;
-                                }
-                                video.play().catch(e => console.log("Autoplay was prevented."));
-                            };
-                            if (Hls.isSupported()) {
-                                const hls = new Hls();
-                                hls.loadSource(video.dataset.hlsUrl);
-                                hls.attachMedia(video);
-                                hls.on(Hls.Events.MANIFEST_PARSED, playVideo);
-                                hlsInstances.push(hls);
-                            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                                video.src = video.dataset.hlsUrl;
-                                playVideo();
-                            }
-                            const allSlides = Array.from(videoContainer.querySelectorAll('.video-slide'));
-                            const currentIndex = allSlides.indexOf(entry.target);
-                            if (currentIndex >= allSlides.length - 2) {
-                                loadMoreVideos();
-                            }
-                        } else {
-                            video.pause();
-                        }
-                    });
-                };
-                intersectionObserver = new IntersectionObserver(callback, options);
-                document.querySelectorAll('.video-slide').forEach(slide => {
-                    if (slide.id !== 'placeholder') {
-                        intersectionObserver.observe(slide);
+            function playVideo(videoElement) {
+                const slideId = videoElement.closest('.video-slide').id;
+                // Destroy other HLS instances
+                Object.keys(hlsInstances).forEach(key => {
+                    if (key !== slideId) {
+                        hlsInstances[key].destroy();
+                        delete hlsInstances[key];
                     }
                 });
+
+                if (Hls.isSupported()) {
+                    if (!hlsInstances[slideId]) {
+                        const hls = new Hls();
+                        hls.loadSource(videoElement.dataset.hlsUrl);
+                        hls.attachMedia(videoElement);
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => videoElement.play());
+                        hlsInstances[slideId] = hls;
+                    } else {
+                       videoElement.play();
+                    }
+                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                    videoElement.src = videoElement.dataset.hlsUrl;
+                    videoElement.play();
+                }
+            }
+
+            function showSlide(index) {
+                const slides = document.querySelectorAll('.video-slide');
+                if (!slides[index] || slides[index].id === 'placeholder') return;
+
+                slides.forEach((slide, i) => {
+                    const video = slide.querySelector('video');
+                    if (i === index) {
+                        slide.classList.add('active');
+                        if (video) playVideo(video);
+                    } else {
+                        slide.classList.remove('active');
+                        if (video) video.pause();
+                    }
+                });
+                currentIndex = index;
+                if (currentIndex >= slides.length - 3) {
+                    loadMoreVideos();
+                }
             }
             
-            // Handles a general search
+            function changeSlide(direction) {
+                if (isNavigating) return;
+                const slides = document.querySelectorAll('.video-slide:not(#placeholder)');
+                let newIndex = currentIndex + direction;
+
+                if (newIndex < 0 || newIndex >= slides.length) {
+                    return;
+                }
+                
+                isNavigating = true;
+                showSlide(newIndex);
+                setTimeout(() => { isNavigating = false; }, 300); // Debounce
+            }
+            
             async function handleSearch() {
                 const query = subredditInput.value.trim();
                 if (!query) return;
@@ -435,7 +408,6 @@
                 searchModal.classList.add('hidden');
             }
             
-            // Handles clicking a subreddit suggestion
             async function handleSuggestionClick(subreddit) {
                 subredditInput.value = subreddit;
                 suggestionsBox.innerHTML = '';
@@ -445,7 +417,6 @@
                 searchModal.classList.add('hidden');
             }
 
-            // Fetches and displays subreddit name suggestions
             async function updateSuggestions() {
                 const query = subredditInput.value.trim();
                 if (query.length < 2) {
@@ -459,11 +430,11 @@
                     suggestionsBox.innerHTML = '';
                     if (data.names && data.names.length > 0) {
                         data.names.slice(0, 5).forEach(name => {
-                            const suggestionItem = document.createElement('div');
-                            suggestionItem.className = 'p-2 hover:bg-gray-700 cursor-pointer';
-                            suggestionItem.textContent = `r/${name}`;
-                            suggestionItem.onclick = () => handleSuggestionClick(name);
-                            suggestionsBox.appendChild(suggestionItem);
+                            const item = document.createElement('div');
+                            item.className = 'p-2 hover:bg-gray-700 cursor-pointer';
+                            item.textContent = `r/${name}`;
+                            item.onclick = () => handleSuggestionClick(name);
+                            suggestionsBox.appendChild(item);
                         });
                         suggestionsBox.classList.remove('hidden');
                     } else {
@@ -474,7 +445,6 @@
                 }
             }
 
-            // Fetches and displays comments for a post
             async function fetchAndShowComments(permalink) {
                 commentsContainer.innerHTML = '<p class="text-center">Loading comments...</p>';
                 commentsModal.classList.remove('hidden');
@@ -485,7 +455,7 @@
                     
                     commentsContainer.innerHTML = '';
                     const comments = data[1].data.children;
-                    if (comments.length === 0 || !comments) {
+                    if (!comments || comments.length === 0) {
                         commentsContainer.innerHTML = '<p class="text-center">No comments yet.</p>';
                         return;
                     }
@@ -496,58 +466,33 @@
                 }
             }
 
-            // Recursively renders comments and their replies
             function renderComment(commentData, parentElement, level) {
-                if (!commentData || !commentData.author || !commentData.body) return; // Ignore deleted/empty comments
+                if (!commentData || !commentData.author || !commentData.body) return;
                 const commentDiv = document.createElement('div');
                 commentDiv.className = 'border-b border-gray-700 py-3';
                 commentDiv.style.marginLeft = `${level * 20}px`;
-
-                commentDiv.innerHTML = `
-                    <div class="flex items-center text-xs text-gray-400 mb-1">
-                        <span class="font-semibold text-purple-400">${commentData.author}</span>
-                        <span class="mx-2">&#8226;</span>
-                        <span>${commentData.score} points</span>
-                    </div>
-                    <p class="text-gray-200">${commentData.body.replace(/\n/g, '<br>')}</p>
-                `;
+                commentDiv.innerHTML = `<div class="flex items-center text-xs text-gray-400 mb-1"><span class="font-semibold text-purple-400">${commentData.author}</span><span class="mx-2">&#8226;</span><span>${commentData.score} points</span></div><p class="text-gray-200">${commentData.body.replace(/\n/g, '<br>')}</p>`;
                 parentElement.appendChild(commentDiv);
-
-                if (commentData.replies && commentData.replies.data && commentData.replies.data.children) {
-                    commentData.replies.data.children.forEach(reply => {
-                        renderComment(reply.data, parentElement, level + 1);
-                    });
+                if (commentData.replies?.data?.children) {
+                    commentData.replies.data.children.forEach(reply => renderComment(reply.data, parentElement, level + 1));
                 }
             }
 
-            // NEW: JavaScript-based scroll snapping logic
-            function handleScrollSnap() {
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(() => {
-                    const containerRect = videoContainer.getBoundingClientRect();
-                    const containerCenter = containerRect.top + containerRect.height / 2;
+            function handleWheel(e) {
+                e.preventDefault();
+                changeSlide(e.deltaY > 0 ? 1 : -1);
+            }
 
-                    let closestSlide = null;
-                    let smallestDistance = Infinity;
+            function handleTouchStart(e) {
+                touchStartY = e.touches[0].clientY;
+            }
 
-                    document.querySelectorAll('.video-slide').forEach(slide => {
-                        const slideRect = slide.getBoundingClientRect();
-                        const slideCenter = slideRect.top + slideRect.height / 2;
-                        const distance = Math.abs(containerCenter - slideCenter);
-
-                        if (distance < smallestDistance) {
-                            smallestDistance = distance;
-                            closestSlide = slide;
-                        }
-                    });
-
-                    if (closestSlide) {
-                        closestSlide.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'center'
-                        });
-                    }
-                }, 150); // Debounce timeout
+            function handleTouchEnd(e) {
+                const touchEndY = e.changedTouches[0].clientY;
+                const deltaY = touchStartY - touchEndY;
+                if (Math.abs(deltaY) > 50) { // Threshold for swipe
+                    changeSlide(deltaY > 0 ? 1 : -1);
+                }
             }
             
             // --- Event Listeners ---
@@ -563,16 +508,16 @@
             subredditInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') handleSearch();
             });
-            homeBtn.addEventListener('click', () => {
-                 fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
-            });
+            homeBtn.addEventListener('click', () => fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true));
             closeCommentsBtn.addEventListener('click', () => commentsModal.classList.add('hidden'));
             commentsModal.addEventListener('click', (e) => {
                 if (e.target === commentsModal) commentsModal.classList.add('hidden');
             });
 
-            // Add the new scroll listener
-            videoContainer.addEventListener('scroll', handleScrollSnap);
+            // Add back the scroll and swipe listeners
+            videoContainer.addEventListener('wheel', handleWheel, { passive: false });
+            videoContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            videoContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
 
             // Initial load
             fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
