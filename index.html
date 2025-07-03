@@ -21,6 +21,7 @@
             justify-content: center; /* Center horizontally */
             align-items: center; /* Center vertically */
             font-family: 'Inter', sans-serif;
+            touch-action: none; /* Prevent default touch behaviors */
         }
         
         /* Base style for the container (mobile-first) */
@@ -41,6 +42,15 @@
                 max-width: 90vw;
                 border-radius: 20px; /* Rounded corners for a device-like feel */
             }
+        }
+
+        /* Mobile-specific styles */
+        .mobile .top-buttons {
+            padding-top: env(safe-area-inset-top); /* Account for notch */
+        }
+
+        .mobile .bottom-buttons {
+            padding-bottom: env(safe-area-inset-bottom); /* Account for home indicator */
         }
 
         /* The main container for the video slides */
@@ -117,17 +127,29 @@
         #comments-container::-webkit-scrollbar-thumb:hover {
             background: #718096;
         }
+
+        /* Mobile-specific button sizing */
+        .mobile .action-button {
+            width: 48px;
+            height: 48px;
+            padding: 12px;
+        }
+
+        /* Mobile info overlay */
+        .mobile .video-info {
+            padding-bottom: 80px; /* Make room for action buttons */
+        }
     </style>
 </head>
 <body class="text-white">
 
     <div id="app-container">
         <!-- Top Left Buttons -->
-        <div class="absolute top-4 left-4 z-30 flex flex-col gap-4">
-            <button id="home-btn" title="Back to Popular Feed" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
+        <div class="absolute top-4 left-4 z-30 flex flex-col gap-4 top-buttons">
+            <button id="home-btn" title="Back to Popular Feed" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors action-button">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
             </button>
-            <button id="search-btn" title="Open Search" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
+            <button id="search-btn" title="Open Search" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors action-button">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
             </button>
         </div>
@@ -174,6 +196,13 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Detect mobile devices
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+                document.body.classList.add('mobile');
+                document.getElementById('app-container').classList.add('mobile');
+            }
+
             const videoContainer = document.getElementById('video-container');
             const statusToast = document.getElementById('status-toast');
             const homeBtn = document.getElementById('home-btn');
@@ -193,6 +222,8 @@
             let currentIndex = 0;
             let isNavigating = false;
             let touchStartY = 0;
+            let touchStartX = 0;
+            let isHorizontalSwipe = false;
 
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
@@ -257,7 +288,7 @@
 
                     const video = document.createElement('video');
                     video.loop = true;
-                    video.muted = false;
+                    video.muted = isMobile; // Start muted on mobile by default
                     video.controls = false;
                     video.preload = 'metadata';
                     video.poster = videoData.thumbnail;
@@ -267,7 +298,7 @@
                     playOverlay.className = 'play-overlay';
                     playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
 
-                    const infoOverlay = `<div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white pointer-events-none"><h3 class="font-bold text-lg">${videoData.title}</h3><p class="text-sm text-gray-300">r/${videoData.subreddit}</p></div>`;
+                    const infoOverlay = `<div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white pointer-events-none video-info"><h3 class="font-bold text-lg">${videoData.title}</h3><p class="text-sm text-gray-300">r/${videoData.subreddit}</p></div>`;
                     
                     const buttonContainer = document.createElement('div');
                     buttonContainer.className = 'absolute bottom-20 right-4 flex flex-col gap-4 z-10';
@@ -277,14 +308,14 @@
                     downloadLink.target = "_blank";
                     downloadLink.rel = "noopener noreferrer";
                     downloadLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>`;
-                    downloadLink.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
+                    downloadLink.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors action-button';
                     downloadLink.onclick = (e) => e.stopPropagation();
 
                     const muteButton = document.createElement('button');
                     const unmutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15z" /></svg>`;
                     const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
-                    muteButton.innerHTML = unmutedIcon;
-                    muteButton.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
+                    muteButton.innerHTML = video.muted ? mutedIcon : unmutedIcon;
+                    muteButton.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors action-button';
                     muteButton.onclick = (e) => {
                         e.stopPropagation();
                         video.muted = !video.muted;
@@ -293,7 +324,7 @@
                     
                     const commentsButton = document.createElement('button');
                     commentsButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>`;
-                    commentsButton.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
+                    commentsButton.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors action-button';
                     commentsButton.onclick = (e) => {
                         e.stopPropagation();
                         fetchAndShowComments(videoData.permalink);
@@ -303,6 +334,24 @@
                     slide.append(video, playOverlay, buttonContainer);
                     slide.insertAdjacentHTML('beforeend', infoOverlay);
                     
+                    // Double tap to like (mobile only)
+                    if (isMobile) {
+                        let lastTap = 0;
+                        slide.addEventListener('touchend', (e) => {
+                            const currentTime = new Date().getTime();
+                            const tapLength = currentTime - lastTap;
+                            if (tapLength < 300 && tapLength > 0) {
+                                // Double tap detected
+                                const heart = document.createElement('div');
+                                heart.className = 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-red-500 text-6xl opacity-0 animate-ping';
+                                heart.innerHTML = '❤️';
+                                slide.appendChild(heart);
+                                setTimeout(() => heart.remove(), 1000);
+                            }
+                            lastTap = currentTime;
+                        });
+                    }
+
                     slide.addEventListener('click', (e) => {
                         if (e.target.closest('button') || e.target.closest('a')) return;
                         video.paused ? video.play() : video.pause();
@@ -479,15 +528,35 @@
             }
 
             function handleWheel(e) {
-                e.preventDefault();
-                changeSlide(e.deltaY > 0 ? 1 : -1);
+                if (!isMobile) {
+                    e.preventDefault();
+                    changeSlide(e.deltaY > 0 ? 1 : -1);
+                }
             }
 
             function handleTouchStart(e) {
                 touchStartY = e.touches[0].clientY;
+                touchStartX = e.touches[0].clientX;
+                isHorizontalSwipe = false;
+            }
+
+            function handleTouchMove(e) {
+                if (isHorizontalSwipe) return;
+                
+                const touchY = e.touches[0].clientY;
+                const touchX = e.touches[0].clientX;
+                const deltaY = touchY - touchStartY;
+                const deltaX = touchX - touchStartX;
+                
+                // Determine if this is primarily a horizontal swipe
+                if (Math.abs(deltaX) > Math.abs(deltaY) * 2) {
+                    isHorizontalSwipe = true;
+                }
             }
 
             function handleTouchEnd(e) {
+                if (isHorizontalSwipe) return;
+                
                 const touchEndY = e.changedTouches[0].clientY;
                 const deltaY = touchStartY - touchEndY;
                 if (Math.abs(deltaY) > 50) { // Threshold for swipe
@@ -514,13 +583,22 @@
                 if (e.target === commentsModal) commentsModal.classList.add('hidden');
             });
 
-            // Add back the scroll and swipe listeners
-            videoContainer.addEventListener('wheel', handleWheel, { passive: false });
-            videoContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
-            videoContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            // Add appropriate event listeners based on device
+            if (isMobile) {
+                videoContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+                videoContainer.addEventListener('touchmove', handleTouchMove, { passive: true });
+                videoContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            } else {
+                videoContainer.addEventListener('wheel', handleWheel, { passive: false });
+            }
 
             // Initial load
             fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+
+            // Handle fullscreen on mobile
+            if (isMobile) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            }
         });
     </script>
 </body>
