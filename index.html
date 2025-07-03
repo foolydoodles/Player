@@ -24,6 +24,7 @@
             width: 100vw; /* Always fill viewport width on mobile */
             height: 100vh; /* Always fill viewport height on mobile */
             background-color: #000; /* Ensure the app itself has a black background */
+            /* Removed centering styles from here */
         }
 
         /* On wider screens (tablets/desktops), constrain the container to a phone-like aspect ratio and center */
@@ -35,7 +36,7 @@
                 max-width: 90vw; /* Prevent it from becoming too wide */
                 border-radius: 20px; /* Rounded corners for a device-like feel */
                 /* Center the container on wider screens */
-                position: absolute; 
+                position: absolute; /* Re-applied absolute positioning for centering on desktop */
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
