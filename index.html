@@ -2,51 +2,56 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>TikTok Style Reddit Browser</title>
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HLS.js for video streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- Google Fonts for a clean look -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Center the app container and create black bars */
         html, body {
-            height: 100vh;
-            overflow: hidden;
+            height: 100vh; /* Use viewport height */
+            overflow: hidden; /* Prevents scrolling the whole page */
             background-color: #000;
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; /* Use flexbox for easy centering */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
             font-family: 'Inter', sans-serif;
         }
-
+        
+        /* Base style for the container (mobile-first) */
         #app-container {
             position: relative;
             overflow: hidden;
             width: 100%;
             height: 100%;
-            min-width: 300px;
-            min-height: 400px;
             background-color: #000;
         }
 
+        /* On wider screens (tablets/desktops), constrain the container to a phone-like aspect ratio */
         @media (min-width: 600px) {
             #app-container {
                 aspect-ratio: 9 / 16;
-                height: 90vh;
-                width: auto;
+                height: 90vh; /* Use slightly less height for padding */
+                width: auto; /* Let height and aspect ratio dictate width */
                 max-width: 90vw;
-                min-width: 375px;
-                border-radius: 20px;
+                border-radius: 20px; /* Rounded corners for a device-like feel */
             }
         }
 
+        /* The main container for the video slides */
         #video-container {
             height: 100%;
             width: 100%;
-            overflow: hidden;
+            overflow: hidden; /* We will control visibility via JS */
             position: relative;
         }
 
+        /* Each individual video slide */
         .video-slide {
             height: 100%;
             width: 100%;
@@ -69,19 +74,16 @@
             z-index: 2;
         }
 
+        /* Video element styling */
         video {
+            max-width: 100%;
+            max-height: 100%;
             width: 100%;
             height: 100%;
-            object-fit: contain;
-            background-color: #000;
+            object-fit: cover; /* Cover the area, cropping if necessary */
         }
 
-        @media (min-width: 600px) {
-            video {
-                object-fit: cover;
-            }
-        }
-
+        /* Play icon overlay shown when video is paused */
         .play-overlay {
             display: none;
             position: absolute;
@@ -101,6 +103,7 @@
             display: flex;
         }
 
+        /* Comments Modal Scrollbar */
         #comments-container::-webkit-scrollbar {
             width: 8px;
         }
@@ -117,13 +120,14 @@
     </style>
 </head>
 <body class="text-white">
+
     <div id="app-container">
         <!-- Top Left Buttons -->
         <div class="absolute top-4 left-4 z-30 flex flex-col gap-4">
-            <button id="home-btn" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
+            <button id="home-btn" title="Back to Popular Feed" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
             </button>
-            <button id="search-btn" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
+            <button id="search-btn" title="Open Search" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
             </button>
         </div>
@@ -338,6 +342,7 @@
 
             function playVideo(videoElement) {
                 const slideId = videoElement.closest('.video-slide').id;
+                // Destroy other HLS instances
                 Object.keys(hlsInstances).forEach(key => {
                     if (key !== slideId) {
                         hlsInstances[key].destroy();
@@ -392,7 +397,7 @@
                 
                 isNavigating = true;
                 showSlide(newIndex);
-                setTimeout(() => { isNavigating = false; }, 300);
+                setTimeout(() => { isNavigating = false; }, 300); // Debounce
             }
             
             async function handleSearch() {
@@ -485,16 +490,12 @@
             function handleTouchEnd(e) {
                 const touchEndY = e.changedTouches[0].clientY;
                 const deltaY = touchStartY - touchEndY;
-                if (Math.abs(deltaY) > 50) {
+                if (Math.abs(deltaY) > 50) { // Threshold for swipe
                     changeSlide(deltaY > 0 ? 1 : -1);
                 }
             }
-
-            window.addEventListener('orientationchange', () => {
-                window.location.reload();
-            });
             
-            // Event Listeners
+            // --- Event Listeners ---
             searchBtn.addEventListener('click', () => {
                 searchModal.classList.remove('hidden');
                 subredditInput.focus();
@@ -513,6 +514,7 @@
                 if (e.target === commentsModal) commentsModal.classList.add('hidden');
             });
 
+            // Add back the scroll and swipe listeners
             videoContainer.addEventListener('wheel', handleWheel, { passive: false });
             videoContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
             videoContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
