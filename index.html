@@ -8,9 +8,14 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Define a CSS variable for actual viewport height */
+        :root {
+            --vh: 100vh;
+        }
+
         /* Center the app container and create black bars */
         html, body {
-            height: 100vh; /* Use viewport height */
+            height: var(--vh); /* Use the dynamically calculated height */
             overflow: hidden; /* Prevents scrolling the whole page */
             background-color: #000; /* Body background color for "black bars" on desktop */
             margin: 0;
@@ -22,7 +27,7 @@
             position: relative;
             overflow: hidden;
             width: 100vw; /* Always fill viewport width on mobile */
-            height: 100vh; /* Always fill viewport height on mobile */
+            height: var(--vh); /* Always fill viewport height on mobile using the dynamic variable */
             background-color: #000; /* Ensure the app itself has a black background */
         }
 
@@ -187,6 +192,19 @@
             let isNavigating = false;
             let touchStartY = 0;
 
+            // Function to set the --vh CSS variable
+            function setVh() {
+                let vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            }
+
+            // Set vh on load and resize
+            setVh();
+            window.addEventListener('resize', setVh);
+            // Also listen for orientation change on mobile devices
+            window.addEventListener('orientationchange', setVh);
+
+
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
                 statusToast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-blue-600'}`;
@@ -242,6 +260,7 @@
                 const placeholder = document.createElement('div');
                 placeholder.id = 'placeholder';
                 placeholder.className = 'video-slide active text-center text-gray-400';
+                // Make sure the inner div also uses h-full and w-full for centering
                 placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full w-full"><h1 class="text-3xl font-bold">Reddit Video Feed</h1><p class="mt-2">Loading popular videos...</p></div>`;
                 videoContainer.appendChild(placeholder);
             }
@@ -255,7 +274,7 @@
 
                     const video = document.createElement('video');
                     video.loop = true;
-                    video.muted = false; // <<< CHANGED THIS TO FALSE
+                    video.muted = false; // Video will attempt to play unmuted
                     video.controls = false;
                     video.preload = 'metadata';
                     video.poster = videoData.thumbnail;
@@ -358,40 +377,53 @@
                         hls.attachMedia(videoElement);
                         hls.on(Hls.Events.MANIFEST_PARSED, () => {
                             videoElement.play().catch(e => {
-                                console.warn("Autoplay failed:", e);
+                                console.warn("Autoplay failed (likely due to sound):", e);
                                 // If autoplay fails, it's likely due to browser autoplay policies.
                                 // The video will remain paused and the play overlay will be visible.
-                                // The user can then click to play/unmute.
-                                showStatus("Autoplay muted/blocked. Tap to play.", false);
-                                videoElement.muted = true; // Ensure it's muted if autoplay with sound fails
+                                // Mute the video and update the icon, then try playing again.
+                                videoElement.muted = true; 
                                 const muteButton = videoElement.nextElementSibling.nextElementSibling.querySelector('button');
-                                if (muteButton) { // Update mute button icon
+                                if (muteButton) { // Update mute button icon to muted
                                     muteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
                                 }
+                                showStatus("Autoplay with sound blocked. Video muted. Tap to unmute.", false);
+                                // Try playing muted
+                                videoElement.play().catch(mutedPlayError => {
+                                    console.error("Even muted autoplay failed:", mutedPlayError);
+                                    showStatus("Video playback blocked. Tap to play.", true);
+                                });
                             });
                         });
                         hlsInstances[slideId] = hls;
                     } else {
                        videoElement.play().catch(e => {
-                            console.warn("Autoplay failed:", e);
-                            showStatus("Autoplay muted/blocked. Tap to play.", false);
+                            console.warn("Autoplay failed (likely due to sound):", e);
                             videoElement.muted = true;
                             const muteButton = videoElement.nextElementSibling.nextElementSibling.querySelector('button');
                             if (muteButton) {
                                 muteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
                             }
+                            showStatus("Autoplay with sound blocked. Video muted. Tap to unmute.", false);
+                            videoElement.play().catch(mutedPlayError => {
+                                console.error("Even muted autoplay failed:", mutedPlayError);
+                                showStatus("Video playback blocked. Tap to play.", true);
+                            });
                        });
                     }
                 } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
                     videoElement.src = videoElement.dataset.hlsUrl;
                     videoElement.play().catch(e => {
-                        console.warn("Autoplay failed:", e);
-                        showStatus("Autoplay muted/blocked. Tap to play.", false);
+                        console.warn("Autoplay failed (likely due to sound):", e);
                         videoElement.muted = true;
                         const muteButton = videoElement.nextElementSibling.nextElementSibling.querySelector('button');
                         if (muteButton) {
                             muteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
                         }
+                        showStatus("Autoplay with sound blocked. Video muted. Tap to unmute.", false);
+                        videoElement.play().catch(mutedPlayError => {
+                            console.error("Even muted autoplay failed:", mutedPlayError);
+                            showStatus("Video playback blocked. Tap to play.", true);
+                        });
                     });
                 } else {
                     console.error("HLS not supported on this browser.");
