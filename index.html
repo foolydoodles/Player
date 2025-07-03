@@ -102,34 +102,7 @@
         }
 
         /* Comments Modal positioning and scrollbar */
-        #comments-modal {
-            /* Keep fixed inset-0 for full screen coverage for the modal itself */
-            position: fixed;
-            inset: 0;
-            z-index: 50;
-            background-color: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem; /* Tailwind p-4 translates to 1rem */
-            /* Add this for better mobile handling: */
-            height: 100dvh; /* Make modal height dynamic viewport height */
-        }
-
-        #comments-modal > div { /* This targets the actual content box within the modal */
-            width: 100%;
-            max-width: 512px; /* Tailwind's max-w-lg */
-            height: 75%; /* Keep 3/4 height for content */
-            max-height: calc(100dvh - 2rem); /* Ensure it doesn't exceed screen, accounting for padding */
-            background-color: #1a202c; /* Tailwind's bg-gray-900 */
-            border-radius: 0.5rem; /* Tailwind's rounded-lg */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Tailwind's shadow-xl */
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
+        /* Reverted comments-modal inner div styles to original Tailwind classes */
         #comments-container::-webkit-scrollbar {
             width: 8px;
         }
