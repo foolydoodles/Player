@@ -224,7 +224,7 @@
             let touchStartY = 0;
             let fetchMode = 'video'; // 'video', 'image', or 'both'
             let prefetchInterval = null; // Holds the interval for background fetching
-            let globalVolume = 1.0; // Persistent volume level
+            let globalVolume = 0.5; // Persistent volume level, starts at 50%
             let isGloballyMuted = false; // Persistent mute state
 
             const POPULAR_SUBREDDITS = [
@@ -446,7 +446,7 @@
                                 volumeSliderContainer.classList.remove('hidden');
                                 if (isGloballyMuted) {
                                     isGloballyMuted = false;
-                                    if (globalVolume === 0) globalVolume = 0.75;
+                                    if (globalVolume === 0) globalVolume = 0.5;
                                     document.querySelectorAll('video').forEach(v => {
                                         v.muted = false;
                                         v.volume = globalVolume;
