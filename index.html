@@ -121,6 +121,15 @@
         #side-menu.open {
             transform: translateX(0); /* Slide in */
         }
+
+        /* Custom style for vertical volume slider */
+        .volume-slider {
+            -webkit-appearance: slider-vertical; /* For WebKit browsers */
+            writing-mode: bt-lr; /* W3C standard for bottom-to-top */
+            width: 8px;
+            height: 100px;
+            padding: 0 5px;
+        }
     </style>
 </head>
 <body class="text-white">
@@ -215,6 +224,8 @@
             let touchStartY = 0;
             let fetchMode = 'video'; // 'video', 'image', or 'both'
             let prefetchInterval = null; // Holds the interval for background fetching
+            let globalVolume = 1.0; // Persistent volume level
+            let isGloballyMuted = false; // Persistent mute state
 
             const POPULAR_SUBREDDITS = [
                 'popular', 'videos', 'funny', 'aww', 'Unexpected', 'nextfuckinglevel', 'Damnthatsinteresting', 
@@ -223,8 +234,8 @@
             ];
             
             // --- Icon Definitions ---
-            const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12A4.5 4.5 0 0012 7.5v-.934a6.501 6.501 0 015.456 6.434l-1.956-.489zM12 2.25a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0112 2.25zM4.903 4.903a.75.75 0 011.06 0l1.062 1.06a.75.75 0 01-1.06 1.06L4.903 5.964a.75.75 0 010-1.06zM2.25 12a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM4.964 19.097a.75.75 0 010-1.06l1.06-1.061a.75.75 0 111.06 1.06l-1.06 1.06a.75.75 0 01-1.06 0zM12 21.75a.75.75 0 01-.75-.75v-1.5a.75.75 0 011.5 0v1.5a.75.75 0 01-.75.75zM18.036 19.097a.75.75 0 01-1.06 0l-1.061-1.06a.75.75 0 111.06-1.06l1.06 1.06a.75.75 0 010 1.06zM21.75 12a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75zM19.036 5.964a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zM12 14.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" /><path fill-rule="evenodd" d="M3.83 3.83A11.25 11.25 0 0112 1.5v2.122c-3.902.433-7.058 3.59-7.49 7.49H2.38a9.75 9.75 0 012.45-6.273z" clip-rule="evenodd" /></svg>`;
-            const unmutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15z" /></svg>`;
+            const volumeUpIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" /></svg>`;
+            const volumeOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
 
             /**
              * Populates the side menu with popular subreddit links.
@@ -357,7 +368,9 @@
                         button.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-purple-600 transition-colors';
                         button.title = title;
                         button.innerHTML = icon;
-                        button.onclick = (e) => { e.stopPropagation(); onClick(e); };
+                        if (onClick) {
+                            button.onclick = (e) => { e.stopPropagation(); onClick(e); };
+                        }
                         return button;
                     };
 
@@ -386,10 +399,14 @@
                     if (isVideoPost(postData)) {
                         slide.classList.add('paused');
                         const video = document.createElement('video');
-                        video.loop = true; video.muted = true; video.controls = false;
+                        video.loop = true; video.controls = false;
                         video.preload = 'metadata'; video.poster = postData.thumbnail;
                         video.dataset.hlsUrl = postData.media.reddit_video.hls_url;
                         
+                        // Apply global volume settings
+                        video.volume = globalVolume;
+                        video.muted = isGloballyMuted;
+
                         const playOverlay = document.createElement('div');
                         playOverlay.className = 'play-overlay';
                         playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
@@ -401,12 +418,76 @@
                         downloadLink.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-purple-600 transition-colors block';
                         downloadLink.onclick = (e) => e.stopPropagation();
 
-                        const muteButton = createButton('Toggle Mute', mutedIcon, () => {
-                            video.muted = !video.muted;
-                            muteButton.innerHTML = video.muted ? mutedIcon : unmutedIcon;
+                        // --- Volume Controls ---
+                        const volumeControlContainer = document.createElement('div');
+                        volumeControlContainer.className = 'relative flex flex-col items-center';
+                        volumeControlContainer.addEventListener('click', e => e.stopPropagation()); // Prevent pausing video
+                        let volumeTimeout;
+
+                        const volumeSliderContainer = document.createElement('div');
+                        volumeSliderContainer.className = 'absolute bottom-full mb-3 p-2 bg-black/70 rounded-full hidden';
+                        
+                        const volumeSlider = document.createElement('input');
+                        volumeSlider.type = 'range';
+                        volumeSlider.min = 0;
+                        volumeSlider.max = 100;
+                        volumeSlider.value = isGloballyMuted ? 0 : globalVolume * 100;
+                        volumeSlider.className = 'volume-slider';
+                        volumeSliderContainer.appendChild(volumeSlider);
+
+                        const volumeButton = createButton('Volume', isGloballyMuted ? volumeOffIcon : volumeUpIcon, null);
+
+                        volumeButton.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            clearTimeout(volumeTimeout);
+
+                            const isSliderHidden = volumeSliderContainer.classList.contains('hidden');
+                            if (isSliderHidden) {
+                                volumeSliderContainer.classList.remove('hidden');
+                                if (isGloballyMuted) {
+                                    isGloballyMuted = false;
+                                    if (globalVolume === 0) globalVolume = 0.75;
+                                    document.querySelectorAll('video').forEach(v => {
+                                        v.muted = false;
+                                        v.volume = globalVolume;
+                                    });
+                                }
+                            } else {
+                                isGloballyMuted = !isGloballyMuted;
+                                document.querySelectorAll('video').forEach(v => v.muted = isGloballyMuted);
+                            }
+
+                            if (!volumeSliderContainer.classList.contains('hidden')) {
+                                volumeTimeout = setTimeout(() => {
+                                    volumeSliderContainer.classList.add('hidden');
+                                }, 3000);
+                            }
+                        });
+
+                        volumeSlider.addEventListener('input', () => {
+                            const newVolume = volumeSlider.value / 100;
+                            globalVolume = newVolume;
+                            isGloballyMuted = newVolume === 0;
+                            
+                            document.querySelectorAll('video').forEach(v => {
+                                v.volume = globalVolume;
+                                v.muted = isGloballyMuted;
+                            });
+
+                            clearTimeout(volumeTimeout);
+                            volumeTimeout = setTimeout(() => {
+                                volumeSliderContainer.classList.add('hidden');
+                            }, 3000);
+                        });
+
+                        // Sync local video element with global state changes
+                        video.addEventListener('volumechange', () => {
+                            volumeSlider.value = video.muted ? 0 : video.volume * 100;
+                            volumeButton.innerHTML = (video.muted || video.volume === 0) ? volumeOffIcon : volumeUpIcon;
                         });
                         
-                        buttonContainer.append(muteButton, downloadLink, shareButton);
+                        volumeControlContainer.append(volumeSliderContainer, volumeButton);
+                        buttonContainer.append(volumeControlContainer, downloadLink, shareButton);
                         slide.append(video, playOverlay, buttonContainer);
 
                         video.onplay = () => slide.classList.remove('paused');
@@ -507,10 +588,8 @@
 
                 const playPromise = () => videoElement.play().catch(e => {
                     console.warn("Autoplay failed, retrying with mute:", e);
-                    videoElement.muted = true;
-                    const muteButton = videoElement.closest('.content-slide').querySelector('button[title="Toggle Mute"]');
-                    if (muteButton) muteButton.innerHTML = mutedIcon;
-                    videoElement.play();
+                    isGloballyMuted = true;
+                    document.querySelectorAll('video').forEach(v => v.muted = true);
                 });
 
                 if (Hls.isSupported()) {
@@ -541,9 +620,8 @@
                     if (i === index) {
                         slide.classList.add('active');
                         if (video) {
-                            video.muted = false; 
-                            const muteButton = slide.querySelector('button[title="Toggle Mute"]');
-                            if(muteButton) muteButton.innerHTML = unmutedIcon;
+                            video.volume = globalVolume;
+                            video.muted = isGloballyMuted;
                             playVideo(video);
                         }
                     } else {
