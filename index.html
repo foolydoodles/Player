@@ -131,6 +131,21 @@
             padding: 0 5px;
             accent-color: #0079D3;
         }
+
+        /* ASCII Art Animation */
+        @keyframes fill-up {
+            0% { background-position: 100% 0; }
+            100% { background-position: 0 0; }
+        }
+
+        #ascii-art {
+            background: linear-gradient(to right, #FF4500 50%, #000000 50%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: fill-up 3s linear infinite;
+        }
     </style>
 </head>
 <body class="text-white bg-black">
@@ -150,7 +165,7 @@
         <main id="content-container">
             <!-- Initial placeholder screen -->
             <div id="placeholder" class="content-slide active flex flex-col justify-center items-center text-center text-gray-300 p-8">
-                <pre id="ascii-art" class="text-[#FF4500] text-xs md:text-sm leading-tight text-center mb-6 font-mono">
+                <pre id="ascii-art" class="text-xs md:text-sm leading-tight text-center mb-6 font-mono">
  ______    ____  _                 
 |  _ \ \  |  _ \| | __ _ _   _ ___ 
 | |_) \ \ | |_) | |/ _` | | | / __|
