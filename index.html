@@ -223,7 +223,6 @@
             let isNavigating = false;
             let touchStartY = 0;
             let fetchMode = 'video'; // 'video', 'image', or 'both'
-            let prefetchInterval = null; // Holds the interval for background fetching
             let globalVolume = 0.5; // Persistent volume level, starts at 50%
             let isGloballyMuted = false; // Persistent mute state
 
@@ -252,7 +251,7 @@
                         e.preventDefault();
                         const sub = e.target.dataset.subreddit;
                         const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/hot.json?limit=50`;
-                        fetchContent(url, true, true);
+                        fetchContent(url, true);
                         closeMenu();
                     });
                     popularFeedsList.appendChild(link);
@@ -275,7 +274,7 @@
             /**
              * Fetches content from a Reddit JSON endpoint based on the current fetchMode.
              */
-            async function fetchContent(url, isNewFeed = false, startPrefetch = false) {
+            async function fetchContent(url, isNewFeed = false) {
                 if (isNewFeed) {
                     clearFeed();
                     showStatus(`Fetching content...`);
@@ -311,16 +310,6 @@
                     if (isNewFeed) {
                         showSlide(0);
                         showStatus(`Loaded ${filteredContent.length} posts.`);
-                        
-                        if (startPrefetch && currentAfterToken) {
-                            prefetchInterval = setInterval(() => {
-                                if (!currentAfterToken) {
-                                    clearInterval(prefetchInterval);
-                                    return;
-                                }
-                                loadMoreContent(true);
-                            }, 5000); // Fetch more every 5 seconds
-                        }
                     }
 
                 } catch (error) {
@@ -333,7 +322,6 @@
              * Clears the content feed and resets state variables.
              */
             function clearFeed() {
-                if (prefetchInterval) clearInterval(prefetchInterval);
                 Object.values(hlsInstances).forEach(hls => hls.destroy());
                 hlsInstances = {};
                 contentContainer.innerHTML = '';
@@ -521,7 +509,7 @@
                         e.stopPropagation();
                         const subreddit = e.target.closest('.subreddit-link').dataset.subreddit;
                         const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/hot.json?limit=50`;
-                        fetchContent(url, true, true);
+                        fetchContent(url, true);
                     };
                     
                     contentContainer.appendChild(slide);
@@ -563,7 +551,6 @@
                     currentAfterToken = newAfterToken;
                     if (!currentAfterToken) {
                          if (!isAutomatic) showStatus("You've reached the end of the feed!");
-                         if (prefetchInterval) clearInterval(prefetchInterval);
                     }
 
                 } catch (error) {
@@ -630,6 +617,11 @@
                     }
                 });
                 currentIndex = index;
+
+                // Proactively load more content when user gets close to the end
+                if (slides.length > 1 && slides.length - currentIndex < 5) {
+                    loadMoreContent(true);
+                }
             }
             
             /**
@@ -671,7 +663,7 @@
                     searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=relevance&t=all&type=link&limit=50`;
                 }
                 
-                await fetchContent(searchUrl, true, true);
+                await fetchContent(searchUrl, true);
                 closeMenu();
                 subredditInput.value = '';
             }
@@ -724,7 +716,7 @@
                         updateModeButtons();
                         if (currentFeedUrl) {
                             const baseUrl = currentFeedUrl.split('&after=')[0].split('?')[0];
-                            fetchContent(baseUrl + '?limit=50', true, true);
+                            fetchContent(baseUrl + '?limit=50', true);
                         }
                     });
                 }
@@ -738,14 +730,14 @@
                         fetchMode = 'both';
                         updateModeButtons(); 
                         const deepLinkUrl = `https://www.reddit.com/by_id/t3_${postId}.json`;
-                        await fetchContent(deepLinkUrl, true, false); // Don't start prefetch for single posts
+                        await fetchContent(deepLinkUrl, true);
                     }
                 }
             }
 
             // --- Event Listeners ---
             getStartedBtn.addEventListener('click', () => {
-                fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true, true);
+                fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
             });
 
             menuBtn.addEventListener('click', openMenu);
