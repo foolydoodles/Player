@@ -47,19 +47,19 @@
             }
         }
 
-        /* The main container for the video slides */
-        #video-container {
+        /* The main container for the content slides */
+        #content-container {
             height: 100%;
             width: 100%;
             overflow: hidden; /* Visibility is controlled via JS */
             position: relative;
         }
 
-        /* Each individual video slide */
-        .video-slide {
+        /* Each individual content slide */
+        .content-slide {
             height: 100%;
             width: 100%;
-            position: absolute; /* Position slides absolutely within video-container */
+            position: absolute; /* Position slides absolutely within content-container */
             top: 0;
             left: 0;
             display: flex;
@@ -72,19 +72,25 @@
             z-index: 1;
         }
         
-        .video-slide.active {
+        .content-slide.active {
             opacity: 1;
             pointer-events: auto;
             z-index: 2;
         }
 
-        /* Video element styling */
-        video {
+        /* Video/Image element styling */
+        video, img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Cover the area, cropping if necessary */
-            display: block; /* Removes any extra space below the video element */
+            display: block; /* Removes any extra space below the element */
         }
+        video {
+            object-fit: cover; /* Cover the area, cropping if necessary */
+        }
+        img {
+            object-fit: contain; /* Show the whole image, letterboxed if needed */
+        }
+
 
         /* Play icon overlay shown when video is paused */
         .play-overlay {
@@ -103,7 +109,7 @@
             transition: opacity 0.2s;
         }
 
-        .video-slide.paused .play-overlay {
+        .content-slide.paused .play-overlay {
             display: flex;
         }
 
@@ -130,12 +136,12 @@
             </button>
         </div>
         
-        <!-- Container for video slides -->
-        <main id="video-container">
+        <!-- Container for content slides -->
+        <main id="content-container">
             <!-- Initial placeholder screen -->
-            <div id="placeholder" class="video-slide active flex flex-col justify-center items-center text-center text-gray-300 p-8">
+            <div id="placeholder" class="content-slide active flex flex-col justify-center items-center text-center text-gray-300 p-8">
                 <h1 class="text-4xl font-bold text-white mb-6">Reddit Scroll</h1>
-                <p class="mb-8 max-w-sm">A TikTok-style viewer for Reddit videos. Open the menu to choose a feed or get started with the popular feed.</p>
+                <p class="mb-8 max-w-sm">A TikTok-style viewer for Reddit. Open the menu to choose a feed or get started with the popular feed.</p>
                 <button id="get-started-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
                     Get Started
                 </button>
@@ -162,6 +168,15 @@
             <input type="text" id="subreddit-input" placeholder="Search or enter r/..." class="w-full pl-4 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-white">
         </div>
 
+        <!-- Content Type Toggle -->
+        <div class="flex items-center justify-between mb-6 p-3 bg-gray-800 rounded-lg">
+            <span class="text-gray-300 font-medium">Show Images Instead</span>
+            <label for="content-toggle" class="inline-flex relative items-center cursor-pointer">
+                <input type="checkbox" value="" id="content-toggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+        </div>
+
         <!-- List of popular feeds -->
         <h3 class="text-lg font-semibold text-gray-300 mb-3">Popular Feeds</h3>
         <nav id="popular-feeds-list" class="flex-grow overflow-y-auto">
@@ -177,7 +192,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- Element References ---
-            const videoContainer = document.getElementById('video-container');
+            const contentContainer = document.getElementById('content-container');
             const statusToast = document.getElementById('status-toast');
             const menuBtn = document.getElementById('menu-btn');
             const sideMenu = document.getElementById('side-menu');
@@ -186,6 +201,7 @@
             const subredditInput = document.getElementById('subreddit-input');
             const popularFeedsList = document.getElementById('popular-feeds-list');
             const getStartedBtn = document.getElementById('get-started-btn');
+            const contentToggle = document.getElementById('content-toggle');
             
             // --- State Variables ---
             let hlsInstances = {};
@@ -195,10 +211,12 @@
             let currentIndex = 0;
             let isNavigating = false;
             let touchStartY = 0;
+            let fetchMode = 'video'; // 'video' or 'image'
 
             const POPULAR_SUBREDDITS = [
                 'popular', 'videos', 'funny', 'aww', 'Unexpected', 'nextfuckinglevel', 'Damnthatsinteresting', 
-                'Whatcouldgowrong', 'IdiotsInCars', 'maybemaybemaybe', 'PublicFreakout', 'fightporn', 'AbruptChaos'
+                'Whatcouldgowrong', 'IdiotsInCars', 'maybemaybemaybe', 'PublicFreakout', 'fightporn', 'AbruptChaos',
+                'pics', 'art', 'itookapicture', 'spaceporn'
             ];
             
             // --- Icon Definitions ---
@@ -220,7 +238,7 @@
                         e.preventDefault();
                         const sub = e.target.dataset.subreddit;
                         const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/hot.json?limit=50`;
-                        fetchVideos(url, true);
+                        fetchContent(url, true);
                         closeMenu();
                     });
                     popularFeedsList.appendChild(link);
@@ -229,8 +247,6 @@
 
             /**
              * Shows a toast notification.
-             * @param {string} message - The message to display.
-             * @param {boolean} [isError=false] - If true, displays the toast as an error.
              */
             function showStatus(message, isError = false) {
                 statusToast.textContent = message;
@@ -240,39 +256,47 @@
             }
             
             /**
-             * Fetches videos from a Reddit JSON endpoint.
-             * @param {string} url - The URL of the Reddit JSON feed.
-             * @param {boolean} [isNewFeed=false] - True if this is a new feed, triggering a reset.
+             * Fetches content from a Reddit JSON endpoint based on the current fetchMode.
              */
-            async function fetchVideos(url, isNewFeed = false) {
+            async function fetchContent(url, isNewFeed = false) {
                 if (isNewFeed) {
                     clearFeed();
-                    showStatus(`Fetching videos...`);
+                    showStatus(`Fetching ${fetchMode}s...`);
                 }
                 currentFeedUrl = url;
 
                 try {
                     const response = await fetch(currentFeedUrl);
-                    if (!response.ok) throw new Error(`Could not fetch videos. Subreddit may be private or banned.`);
+                    if (!response.ok) throw new Error(`Could not fetch content. Subreddit may be private or banned.`);
                     
                     const data = await response.json();
                     currentAfterToken = data.data.after;
-                    const videos = data.data.children
-                        .map(post => post.data)
-                        .filter(post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url);
+                    const posts = data.data.children.map(post => post.data);
 
-                    if (videos.length === 0) {
-                        if (isNewFeed) showStatus(`No videos found in this feed.`, true);
+                    let filteredContent;
+                    if (fetchMode === 'video') {
+                        filteredContent = posts.filter(post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url);
+                    } else { // image mode
+                        filteredContent = posts.filter(post => 
+                            !post.is_video && 
+                            post.post_hint === 'image' &&
+                            post.url_overridden_by_dest &&
+                            (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'))
+                        );
+                    }
+
+                    if (filteredContent.length === 0) {
+                        if (isNewFeed) showStatus(`No ${fetchMode}s found in this feed.`, true);
                         return;
                     }
                     
                     const placeholder = document.getElementById('placeholder');
                     if (placeholder) placeholder.remove();
                     
-                    appendVideos(videos);
+                    appendContent(filteredContent);
                     if (isNewFeed) {
                         showSlide(0);
-                        showStatus(`Loaded ${videos.length} videos.`);
+                        showStatus(`Loaded ${filteredContent.length} ${fetchMode}s.`);
                     }
 
                 } catch (error) {
@@ -282,45 +306,32 @@
             }
 
             /**
-             * Clears the video feed and resets state variables.
+             * Clears the content feed and resets state variables.
              */
             function clearFeed() {
                 Object.values(hlsInstances).forEach(hls => hls.destroy());
                 hlsInstances = {};
-                videoContainer.innerHTML = '';
+                contentContainer.innerHTML = '';
                 currentAfterToken = null;
                 isLoadingMore = false;
                 currentIndex = 0;
             }
 
             /**
-             * Appends video data as slides to the container.
-             * @param {Array<Object>} videos - An array of Reddit post data objects.
+             * Appends content (videos or images) as slides to the container.
              */
-            function appendVideos(videos) {
-                videos.forEach((videoData) => {
+            function appendContent(content) {
+                content.forEach((postData) => {
                     const slide = document.createElement('div');
-                    const slideId = `slide-${videoData.id}`;
+                    const slideId = `slide-${postData.id}`;
                     slide.id = slideId;
-                    slide.className = 'video-slide paused';
-
-                    const video = document.createElement('video');
-                    video.loop = true;
-                    video.muted = true; // Start muted to help with autoplay policies
-                    video.controls = false;
-                    video.preload = 'metadata';
-                    video.poster = videoData.thumbnail;
-                    video.dataset.hlsUrl = videoData.media.reddit_video.hls_url;
-                    
-                    const playOverlay = document.createElement('div');
-                    playOverlay.className = 'play-overlay';
-                    playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
+                    slide.className = 'content-slide';
 
                     const infoOverlay = `
                         <div class="absolute bottom-0 left-0 right-0 p-4 pb-24 bg-gradient-to-t from-black/70 to-transparent text-white">
-                            <h3 class="font-bold text-lg leading-tight pointer-events-none">${videoData.title}</h3>
-                            <button class="subreddit-link text-sm text-purple-400 hover:text-purple-300 hover:underline focus:outline-none text-left inline-flex items-center gap-1 transition-colors" data-subreddit="${videoData.subreddit}">
-                                <span>r/${videoData.subreddit}</span>
+                            <h3 class="font-bold text-lg leading-tight pointer-events-none">${postData.title}</h3>
+                            <button class="subreddit-link text-sm text-purple-400 hover:text-purple-300 hover:underline focus:outline-none text-left inline-flex items-center gap-1 transition-colors" data-subreddit="${postData.subreddit}">
+                                <span>r/${postData.subreddit}</span>
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                             </button>
                         </div>`;
@@ -333,104 +344,127 @@
                         button.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-purple-600 transition-colors';
                         button.title = title;
                         button.innerHTML = icon;
-                        button.onclick = (e) => {
-                           e.stopPropagation(); // Prevent click from bubbling to the slide
-                           onClick(e);
-                        };
+                        button.onclick = (e) => { e.stopPropagation(); onClick(e); };
                         return button;
                     };
 
-                    const downloadLink = document.createElement('a');
-                    downloadLink.href = `https://viddit.io/download?url=https://www.reddit.com${videoData.permalink}`;
-                    downloadLink.target = "_blank";
-                    downloadLink.rel = "noopener noreferrer";
-                    downloadLink.title = "Download Video";
-                    downloadLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>`;
-                    downloadLink.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-purple-600 transition-colors block';
-                    downloadLink.onclick = (e) => e.stopPropagation();
-
-                    const muteButton = createButton('Toggle Mute', video.muted ? mutedIcon : unmutedIcon, () => {
-                        video.muted = !video.muted;
-                        muteButton.innerHTML = video.muted ? mutedIcon : unmutedIcon;
-                    });
-                    
                     const shareIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>`;
-                    const shareButton = createButton('Share Video', shareIcon, () => {
-                        const shareUrl = `https://www.reddit.com${videoData.permalink}`;
+                    const shareButton = createButton('Share Post', shareIcon, () => {
+                        const shareUrl = `https://www.reddit.com${postData.permalink}`;
                          if (navigator.share) {
-                             navigator.share({ title: videoData.title, url: shareUrl }).catch(console.error);
+                             navigator.share({ title: postData.title, url: shareUrl }).catch(console.error);
                          } else {
-                            // Fallback for browsers that don't support navigator.share or when in insecure contexts
                             const textArea = document.createElement('textarea');
                             textArea.value = shareUrl;
-                            // Make the textarea out of sight
-                            textArea.style.position = 'fixed';
-                            textArea.style.top = '-9999px';
-                            textArea.style.left = '-9999px';
+                            textArea.style.position = 'fixed'; textArea.style.top = '-9999px'; textArea.style.left = '-9999px';
                             document.body.appendChild(textArea);
-                            textArea.focus();
-                            textArea.select();
+                            textArea.focus(); textArea.select();
                             try {
-                                const successful = document.execCommand('copy');
-                                if (successful) {
-                                    showStatus("Link copied!");
-                                } else {
-                                    showStatus("Copy failed.", true);
-                                }
+                                document.execCommand('copy') ? showStatus("Link copied!") : showStatus("Copy failed.", true);
                             } catch (err) {
                                 showStatus("Copy failed.", true);
-                                console.error('Fallback: Oops, unable to copy', err);
                             }
                             document.body.removeChild(textArea);
                          }
                     });
+                    
+                    const downloadIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>`;
 
-                    buttonContainer.append(muteButton, downloadLink, shareButton);
-                    slide.append(video, playOverlay, buttonContainer);
+                    if (fetchMode === 'video') {
+                        slide.classList.add('paused');
+                        const video = document.createElement('video');
+                        video.loop = true; video.muted = true; video.controls = false;
+                        video.preload = 'metadata'; video.poster = postData.thumbnail;
+                        video.dataset.hlsUrl = postData.media.reddit_video.hls_url;
+                        
+                        const playOverlay = document.createElement('div');
+                        playOverlay.className = 'play-overlay';
+                        playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
+
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = `https://viddit.io/download?url=https://www.reddit.com${postData.permalink}`;
+                        downloadLink.target = "_blank"; downloadLink.rel = "noopener noreferrer"; downloadLink.title = "Download Video";
+                        downloadLink.innerHTML = downloadIcon;
+                        downloadLink.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-purple-600 transition-colors block';
+                        downloadLink.onclick = (e) => e.stopPropagation();
+
+                        const muteButton = createButton('Toggle Mute', mutedIcon, () => {
+                            video.muted = !video.muted;
+                            muteButton.innerHTML = video.muted ? mutedIcon : unmutedIcon;
+                        });
+                        
+                        buttonContainer.append(muteButton, downloadLink, shareButton);
+                        slide.append(video, playOverlay, buttonContainer);
+
+                        video.onplay = () => slide.classList.remove('paused');
+                        video.onpause = () => slide.classList.add('paused');
+                        slide.addEventListener('click', (e) => {
+                            if (e.target.closest('button, a')) return;
+                            video.paused ? video.play() : video.pause();
+                        });
+                    } else { // Image mode
+                        const img = document.createElement('img');
+                        img.src = postData.url_overridden_by_dest;
+                        img.alt = postData.title;
+                        img.onerror = (e) => { e.target.closest('.content-slide').remove(); showStatus('Image failed to load.', true); };
+
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = postData.url_overridden_by_dest;
+                        downloadLink.target = "_blank";
+                        downloadLink.download = postData.url_overridden_by_dest.split('/').pop().split('?')[0] || 'reddit-image';
+                        downloadLink.title = "Download Image";
+                        downloadLink.innerHTML = downloadIcon;
+                        downloadLink.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-purple-600 transition-colors block';
+                        downloadLink.onclick = (e) => e.stopPropagation();
+
+                        buttonContainer.append(downloadLink, shareButton);
+                        slide.append(img, buttonContainer);
+                    }
+                    
                     slide.insertAdjacentHTML('beforeend', infoOverlay);
-                    
-                    slide.addEventListener('click', (e) => {
-                        // Ignore clicks on buttons or links inside the slide
-                        if (e.target.closest('button, a')) return;
-                        video.paused ? video.play() : video.pause();
-                    });
-                    
                     const subredditLink = slide.querySelector('.subreddit-link');
                     subredditLink.onclick = (e) => {
                         e.stopPropagation();
                         const subreddit = e.target.closest('.subreddit-link').dataset.subreddit;
                         const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/hot.json?limit=50`;
-                        fetchVideos(url, true);
+                        fetchContent(url, true);
                     };
-
-                    video.onplay = () => slide.classList.remove('paused');
-                    video.onpause = () => slide.classList.add('paused');
                     
-                    videoContainer.appendChild(slide);
+                    contentContainer.appendChild(slide);
                 });
             }
             
             /**
-             * Loads more videos for infinite scroll.
+             * Loads more content for infinite scroll.
              */
-            async function loadMoreVideos() {
+            async function loadMoreContent() {
                 if (isLoadingMore || !currentAfterToken) return;
                 isLoadingMore = true;
-                showStatus("Loading more videos...");
+                showStatus(`Loading more ${fetchMode}s...`);
                 try {
                     const response = await fetch(`${currentFeedUrl}&after=${currentAfterToken}`);
-                    if (!response.ok) throw new Error('Failed to load more videos.');
+                    if (!response.ok) throw new Error('Failed to load more content.');
                     const data = await response.json();
                     currentAfterToken = data.data.after;
-                    const newVideos = data.data.children
-                        .map(post => post.data)
-                        .filter(post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url);
-
-                    if (newVideos.length > 0) {
-                        appendVideos(newVideos);
+                    
+                    const posts = data.data.children.map(post => post.data);
+                    let newContent;
+                    if (fetchMode === 'video') {
+                        newContent = posts.filter(post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url);
                     } else {
-                        showStatus("No more videos to load.");
-                        currentAfterToken = null; // Stop trying to load more
+                        newContent = posts.filter(post => 
+                            !post.is_video && 
+                            post.post_hint === 'image' &&
+                            post.url_overridden_by_dest &&
+                            (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'))
+                        );
+                    }
+
+                    if (newContent.length > 0) {
+                        appendContent(newContent);
+                    } else {
+                        showStatus("No more content to load.");
+                        currentAfterToken = null;
                     }
                 } catch (error) {
                     console.error("Load more error:", error);
@@ -441,13 +475,10 @@
             }
 
             /**
-             * Manages HLS playback for a video element, destroying other instances.
-             * @param {HTMLVideoElement} videoElement - The video element to play.
+             * Manages HLS playback for a video element.
              */
             function playVideo(videoElement) {
-                const slideId = videoElement.closest('.video-slide').id;
-
-                // Destroy HLS instances for all other videos to save resources
+                const slideId = videoElement.closest('.content-slide').id;
                 Object.keys(hlsInstances).forEach(key => {
                     if (key !== slideId && hlsInstances[key]) {
                         hlsInstances[key].destroy();
@@ -456,38 +487,34 @@
                 });
 
                 const playPromise = () => videoElement.play().catch(e => {
-                    // Autoplay is often blocked if the video is not muted.
-                    // If it fails, mute the video and try again.
                     console.warn("Autoplay failed, retrying with mute:", e);
                     videoElement.muted = true;
-                    const muteButton = videoElement.closest('.video-slide').querySelector('button[title="Toggle Mute"]');
+                    const muteButton = videoElement.closest('.content-slide').querySelector('button[title="Toggle Mute"]');
                     if (muteButton) muteButton.innerHTML = mutedIcon;
                     videoElement.play();
                 });
 
                 if (Hls.isSupported()) {
-                    if (!hlsInstances[slideId]) { // If no HLS instance for this slide, create one
+                    if (!hlsInstances[slideId]) {
                         const hls = new Hls();
                         hls.loadSource(videoElement.dataset.hlsUrl);
                         hls.attachMedia(videoElement);
                         hls.on(Hls.Events.MANIFEST_PARSED, () => playPromise());
                         hlsInstances[slideId] = hls;
-                    } else { // HLS instance already exists, just play
+                    } else {
                        playPromise();
                     }
                 } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                    // For native HLS support (like Safari)
                     videoElement.src = videoElement.dataset.hlsUrl;
                     playPromise();
                 }
             }
 
             /**
-             * Shows a specific slide by its index in the DOM.
-             * @param {number} index - The index of the slide to show.
+             * Shows a specific slide by its index.
              */
             function showSlide(index) {
-                const slides = document.querySelectorAll('.video-slide:not(#placeholder)');
+                const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
                 if (slides.length === 0 || index < 0 || index >= slides.length) return;
 
                 slides.forEach((slide, i) => {
@@ -495,7 +522,6 @@
                     if (i === index) {
                         slide.classList.add('active');
                         if (video) {
-                            // Unmute the current video by default for a better experience
                             video.muted = false; 
                             const muteButton = slide.querySelector('button[title="Toggle Mute"]');
                             if(muteButton) muteButton.innerHTML = unmutedIcon;
@@ -503,35 +529,32 @@
                         }
                     } else {
                         slide.classList.remove('active');
-                        if (video) video.pause(); // Pause inactive videos
+                        if (video) video.pause();
                     }
                 });
                 currentIndex = index;
 
-                // Preload more videos when user gets near the end of the current list
                 if (currentIndex >= slides.length - 5) { 
-                    loadMoreVideos();
+                    loadMoreContent();
                 }
             }
             
             /**
              * Navigates to the next or previous slide.
-             * @param {number} direction - 1 for next, -1 for previous.
              */
             function changeSlide(direction) {
-                if (isNavigating) return; // Prevent rapid navigation
-                const slides = document.querySelectorAll('.video-slide:not(#placeholder)');
+                if (isNavigating) return;
+                const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
                 if (slides.length === 0) return;
                 let newIndex = currentIndex + direction;
 
                 if (newIndex < 0) {
-                    showStatus("Already at the first video.");
+                    showStatus("Already at the first post.");
                     return;
                 }
                 
                 isNavigating = true;
                 showSlide(newIndex);
-                // Debounce navigation to prevent skipping multiple slides
                 setTimeout(() => { isNavigating = false; }, 300); 
             }
             
@@ -543,16 +566,14 @@
                 if (!query) return;
 
                 let searchUrl;
-                // Check if the query is a direct subreddit link (e.g., "r/videos")
                 if (query.toLowerCase().startsWith('r/')) {
                     const subredditName = query.substring(2);
                     searchUrl = `https://www.reddit.com/r/${encodeURIComponent(subredditName)}/hot.json?limit=50`;
                 } else {
-                    // Otherwise, perform a general search across Reddit
                     searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=relevance&t=all&type=link&limit=50`;
                 }
                 
-                await fetchVideos(searchUrl, true);
+                await fetchContent(searchUrl, true);
                 closeMenu();
                 subredditInput.value = '';
             }
@@ -570,7 +591,7 @@
 
             // --- Event Listeners ---
             getStartedBtn.addEventListener('click', () => {
-                fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+                fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
             });
 
             menuBtn.addEventListener('click', openMenu);
@@ -581,19 +602,25 @@
                 if (e.key === 'Enter') handleSearch();
             });
 
-            // Listen for mouse wheel scroll to change slides
-            videoContainer.addEventListener('wheel', (e) => {
+            contentToggle.addEventListener('change', () => {
+                fetchMode = contentToggle.checked ? 'image' : 'video';
+                if (currentFeedUrl) {
+                    const baseUrl = currentFeedUrl.split('&after=')[0];
+                    fetchContent(baseUrl, true);
+                }
+            });
+
+            contentContainer.addEventListener('wheel', (e) => {
                 e.preventDefault();
                 if (document.getElementById('placeholder')) return;
                 changeSlide(e.deltaY > 0 ? 1 : -1);
             }, { passive: false });
 
-            // Listen for touch gestures to change slides
-            videoContainer.addEventListener('touchstart', (e) => touchStartY = e.touches[0].clientY, { passive: true });
-            videoContainer.addEventListener('touchend', (e) => {
+            contentContainer.addEventListener('touchstart', (e) => touchStartY = e.touches[0].clientY, { passive: true });
+            contentContainer.addEventListener('touchend', (e) => {
                 if (document.getElementById('placeholder')) return;
                 const deltaY = touchStartY - e.changedTouches[0].clientY;
-                if (Math.abs(deltaY) > 50) { // Threshold to prevent accidental swipes
+                if (Math.abs(deltaY) > 50) {
                     changeSlide(deltaY > 0 ? 1 : -1);
                 }
             }, { passive: true });
