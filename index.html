@@ -255,7 +255,7 @@
             async function fetchContent(url, isNewFeed = false) {
                 if (isNewFeed) {
                     clearFeed();
-                    showStatus(`Fetching ${fetchMode}...`);
+                    showStatus(`Fetching content...`);
                 }
                 currentFeedUrl = url;
 
@@ -277,7 +277,7 @@
                     }
 
                     if (filteredContent.length === 0) {
-                        if (isNewFeed) showStatus(`No matching content found in this feed.`, true);
+                        if (isNewFeed) showStatus(`No matching content found.`, true);
                         return;
                     }
                     
@@ -341,9 +341,10 @@
 
                     const shareIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>`;
                     const shareButton = createButton('Share Post', shareIcon, () => {
-                        const shareUrl = `https://www.reddit.com${postData.permalink}`;
+                        // MODIFIED: Share a link to this player with the post ID in the hash
+                        const shareUrl = `${window.location.origin}${window.location.pathname}#${postData.id}`;
                          if (navigator.share) {
-                             navigator.share({ title: postData.title, url: shareUrl }).catch(console.error);
+                             navigator.share({ title: postData.title, url: shareUrl }).catch(err => showStatus('Could not share.', true));
                          } else {
                              const textArea = document.createElement('textarea');
                              textArea.value = shareUrl;
@@ -522,7 +523,8 @@
                 });
                 currentIndex = index;
 
-                if (currentIndex >= slides.length - 5) { 
+                // Only try to load more if we are in a feed, not a single deep-linked post
+                if (currentIndex >= slides.length - 5 && slides.length > 1) { 
                     loadMoreContent();
                 }
             }
@@ -620,6 +622,20 @@
                 }
             }
 
+            // NEW: Checks for a post ID in the URL hash on page load
+            async function handleDeepLink() {
+                if (window.location.hash) {
+                    const postId = window.location.hash.substring(1);
+                    if (postId) {
+                        // Ensure we fetch any media type for a direct link
+                        fetchMode = 'both';
+                        updateModeButtons(); 
+                        const deepLinkUrl = `https://www.reddit.com/by_id/t3_${postId}.json?limit=1`;
+                        await fetchContent(deepLinkUrl, true);
+                    }
+                }
+            }
+
             // --- Event Listeners ---
             getStartedBtn.addEventListener('click', () => {
                 fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
@@ -652,6 +668,8 @@
             populatePopularFeeds();
             updateModeButtons();
             setupModeButtons();
+            // NEW: Call the deep link handler on page load
+            handleDeepLink();
         });
     </script>
 </body>
