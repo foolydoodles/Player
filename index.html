@@ -101,21 +101,6 @@
             display: flex;
         }
 
-        /* Comments Modal positioning and scrollbar */
-        #comments-container::-webkit-scrollbar {
-            width: 8px;
-        }
-        #comments-container::-webkit-scrollbar-track {
-            background: #2d3748;
-        }
-        #comments-container::-webkit-scrollbar-thumb {
-            background: #4a5568;
-            border-radius: 4px;
-        }
-        #comments-container::-webkit-scrollbar-thumb:hover {
-            background: #718096;
-        }
-
         /* Search Modal Top Positioning */
         #search-modal {
             align-items: flex-start; /* Align to the top */
@@ -127,26 +112,22 @@
 <body class="text-white">
 
     <div id="app-container">
-        <!-- Top Left Controls (Home & Search) -->
         <div class="absolute top-4 left-4 z-30 flex flex-col gap-4">
-            <button id="home-btn" title="Back to Popular Feed" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
-            </button>
             <button id="search-btn" title="Open Search" class="bg-gray-800/80 p-3 rounded-full hover:bg-purple-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
             </button>
         </div>
         
-        <!-- Main video container -->
         <main id="video-container">
-            <!-- Initial placeholder with instructions -->
-            <div id="placeholder" class="video-slide active text-center text-gray-300 p-8">
-                <h1 class="text-4xl font-bold text-white">Start Scrolling For Reddit Brainrot</h1>
+            <div id="placeholder" class="video-slide active flex flex-col justify-center items-center text-center text-gray-300 p-8">
+                 <h1 class="text-4xl font-bold text-white mb-6">Reddit Scroll</h1>
+                 <button id="get-started-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-full text-lg transition-transform transform hover:scale-105">
+                    Get Started
+                </button>
             </div>
         </main>
     </div>
 
-    <!-- Search Modal -->
     <div id="search-modal" class="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex justify-center items-start p-4 hidden">
         <div class="w-full max-w-md relative mt-16">
             <div class="relative">
@@ -159,18 +140,6 @@
         </div>
     </div>
 
-    <!-- Comments Modal -->
-    <div id="comments-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
-        <div class="w-full max-w-lg h-3/4 bg-gray-900 rounded-lg shadow-xl flex flex-col relative">
-            <button id="close-comments-btn" class="absolute -top-2 -right-2 text-white bg-gray-700 rounded-full p-1 hover:bg-red-500 transition-colors z-10">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <h2 class="text-xl font-bold p-4 border-b border-gray-700">Comments</h2>
-            <div id="comments-container" class="flex-grow p-4 overflow-y-auto"></div>
-        </div>
-    </div>
-
-    <!-- Status Toast Notification -->
     <div id="status-toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 z-50">
         Status message
     </div>
@@ -180,15 +149,12 @@
             // --- Element References ---
             const videoContainer = document.getElementById('video-container');
             const statusToast = document.getElementById('status-toast');
-            const homeBtn = document.getElementById('home-btn');
             const searchBtn = document.getElementById('search-btn');
             const searchModal = document.getElementById('search-modal');
             const closeSearchBtn = document.getElementById('close-search-btn');
             const subredditInput = document.getElementById('subreddit-input');
             const suggestionsBox = document.getElementById('suggestions-box');
-            const commentsModal = document.getElementById('comments-modal');
-            const closeCommentsBtn = document.getElementById('close-comments-btn');
-            const commentsContainer = document.getElementById('comments-container');
+            const getStartedBtn = document.getElementById('get-started-btn');
             
             // --- State Variables ---
             let hlsInstances = {}; // Stores HLS.js instances by slide ID
@@ -300,7 +266,7 @@
                             <button class="subreddit-link text-sm text-purple-400 hover:text-purple-300 hover:underline focus:outline-none text-left inline-flex items-center gap-1 transition-colors" data-subreddit="${videoData.subreddit}">
                                 <span>r/${videoData.subreddit}</span>
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
                                 </svg>
                             </button>
                         </div>`;
@@ -341,11 +307,9 @@
                         e.stopPropagation();
                         const shareUrl = `https://www.reddit.com${videoData.permalink}`;
 
-                        // Fallback function to copy text to the clipboard, more robust for iframes.
                         const fallbackCopy = () => {
                             const textArea = document.createElement("textarea");
                             textArea.value = shareUrl;
-                            // Make the textarea non-editable and invisible
                             textArea.style.position = "fixed";
                             textArea.style.top = "-9999px";
                             textArea.style.left = "-9999px";
@@ -366,34 +330,21 @@
                             document.body.removeChild(textArea);
                         };
 
-                        // Try using the Web Share API first.
                         if (navigator.share) {
                             navigator.share({
                                 title: videoData.title,
                                 url: shareUrl,
                             }).catch((error) => {
-                                // If sharing fails (e.g., permission denied), use the fallback.
                                 console.warn('Web Share API failed. Falling back to clipboard.', error);
                                 fallbackCopy();
                             });
                         } else {
-                            // If Web Share API is not supported, use the fallback.
                             fallbackCopy();
                         }
                     };
 
-                    // Comments Button
-                    const commentsButton = document.createElement('button');
-                    commentsButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>`;
-                    commentsButton.className = 'bg-black/50 p-3 rounded-full hover:bg-purple-600 transition-colors';
-                    commentsButton.title = "View Comments";
-                    commentsButton.onclick = (e) => {
-                        e.stopPropagation();
-                        fetchAndShowComments(videoData.permalink);
-                    };
-
                     // Assemble the slide
-                    buttonContainer.append(downloadLink, muteButton, shareButton, commentsButton);
+                    buttonContainer.append(downloadLink, muteButton, shareButton);
                     slide.append(video, playOverlay, buttonContainer);
                     slide.insertAdjacentHTML('beforeend', infoOverlay);
                     
@@ -463,7 +414,6 @@
                     }
                 });
 
-                // Always attempt to play unmuted. The catch block will handle failures.
                 videoElement.muted = false;
 
                 const muteButton = videoElement.closest('.video-slide').querySelector('button[title="Toggle Mute"]');
@@ -476,7 +426,6 @@
                 const playPromise = () => {
                     videoElement.play().catch(e => {
                         console.warn("Autoplay failed, likely due to browser policy:", e);
-                        // If autoplay with sound failed, force it to be muted and update the UI.
                         videoElement.muted = true;
                         if (muteButton) {
                             const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
@@ -498,7 +447,6 @@
                        playPromise();
                     }
                 } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                    // For native HLS support (e.g., Safari)
                     videoElement.src = videoElement.dataset.hlsUrl;
                     playPromise();
                 } else {
@@ -513,13 +461,11 @@
              */
             function showSlide(index) {
                 const slides = document.querySelectorAll('.video-slide:not(#placeholder)');
-                if (slides.length === 0) return; // No videos to show
+                if (slides.length === 0) return;
 
-                // Clamp index to be within the bounds of the slides array
                 if (index < 0) index = 0; 
                 if (index >= slides.length) index = slides.length - 1;
 
-                // Deactivate all slides and pause their videos
                 slides.forEach((slide, i) => {
                     const video = slide.querySelector('video');
                     if (i === index) {
@@ -529,13 +475,12 @@
                         slide.classList.remove('active');
                         if (video) {
                             video.pause();
-                            video.currentTime = 0; // Reset video to start
+                            video.currentTime = 0;
                         }
                     }
                 });
                 currentIndex = index;
 
-                // Pre-fetch more videos if the user is near the end of the current list
                 if (currentIndex >= slides.length - 3) { 
                     loadMoreVideos();
                 }
@@ -546,7 +491,7 @@
              * @param {number} direction - 1 for next, -1 for previous.
              */
             function changeSlide(direction) {
-                if (isNavigating) return; // Debounce to prevent rapid changes
+                if (isNavigating) return;
                 const slides = document.querySelectorAll('.video-slide:not(#placeholder)');
                 if (slides.length === 0) return;
 
@@ -554,12 +499,12 @@
 
                 if (newIndex < 0) {
                     showStatus("Already at the first video.");
-                    return; // Don't go below the first video
+                    return;
                 }
                 
                 isNavigating = true;
                 showSlide(newIndex);
-                setTimeout(() => { isNavigating = false; }, 300); // Debounce duration
+                setTimeout(() => { isNavigating = false; }, 300);
             }
             
             /**
@@ -571,21 +516,19 @@
                     showStatus("Please enter a search query or subreddit name.", true);
                     return;
                 }
-                suggestionsBox.classList.add('hidden'); // Hide suggestions
+                suggestionsBox.classList.add('hidden');
                 
                 let searchUrl;
-                // Check if the query is for a specific subreddit
                 if (query.toLowerCase().startsWith('r/')) {
                     const subredditName = query.substring(2);
                     searchUrl = `https://www.reddit.com/r/${encodeURIComponent(subredditName)}/hot.json?limit=50`;
                 } else {
-                    // Otherwise, perform a general video search
                     searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=relevance&t=all&type=link&limit=50`;
                 }
                 
                 await fetchVideos(searchUrl, true);
                 searchModal.classList.add('hidden');
-                subredditInput.value = ''; // Clear input after search
+                subredditInput.value = '';
             }
             
             /**
@@ -593,13 +536,13 @@
              * @param {string} subreddit - The name of the subreddit.
              */
             async function handleSuggestionClick(subreddit) {
-                subredditInput.value = `r/${subreddit}`; // Update input for clarity
+                subredditInput.value = `r/${subreddit}`;
                 suggestionsBox.innerHTML = '';
                 suggestionsBox.classList.add('hidden');
                 const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/hot.json?limit=50`;
                 await fetchVideos(url, true);
                 searchModal.classList.add('hidden');
-                subredditInput.value = ''; // Clear input
+                subredditInput.value = '';
             }
 
             let searchTimeout;
@@ -613,7 +556,6 @@
                     suggestionsBox.classList.add('hidden');
                     return;
                 }
-                // Debounce the API call to avoid excessive requests while typing
                 searchTimeout = setTimeout(async () => {
                     try {
                         const response = await fetch(`https://www.reddit.com/api/search_reddit_names.json?query=${encodeURIComponent(query)}`);
@@ -637,76 +579,14 @@
                         console.error("Suggestion fetch error:", error);
                         suggestionsBox.classList.add('hidden');
                     }
-                }, 300); // 300ms debounce
-            }
-
-            /**
-             * Fetches and renders comments for a given post permalink.
-             * @param {string} permalink - The permalink of the Reddit post.
-             */
-            async function fetchAndShowComments(permalink) {
-                commentsContainer.innerHTML = '<p class="text-center text-gray-400">Loading comments...</p>';
-                commentsModal.classList.remove('hidden');
-                try {
-                    const response = await fetch(`https://www.reddit.com${permalink}.json`);
-                    if (!response.ok) throw new Error('Failed to fetch comments.');
-                    const data = await response.json();
-                    
-                    commentsContainer.innerHTML = '';
-                    const comments = data[1]?.data?.children; // Comments are in the second array entry
-                    if (!comments || comments.length === 0 || comments[0].kind === 'more') { 
-                        commentsContainer.innerHTML = '<p class="text-center text-gray-400">No comments yet.</p>';
-                        return;
-                    }
-                    comments.forEach(comment => renderComment(comment.data, commentsContainer, 0));
-                } catch (error) {
-                    console.error('Error fetching comments:', error);
-                    commentsContainer.innerHTML = `<p class="text-center text-red-500">Error loading comments: ${error.message}</p>`;
-                }
-            }
-
-            /**
-             * Recursively renders a comment and its replies.
-             * @param {Object} commentData - The data object for a single comment.
-             * @param {HTMLElement} parentElement - The element to append the comment to.
-             * @param {number} level - The nesting level of the comment.
-             */
-            function renderComment(commentData, parentElement, level) {
-                // Skip deleted, empty, or stickied comments
-                if (!commentData || commentData.author === '[deleted]' || !commentData.body || commentData.stickied) return;
-
-                const commentDiv = document.createElement('div');
-                commentDiv.className = `py-3 ${level > 0 ? 'ml-4 border-l-2 border-gray-800 pl-4' : 'border-b border-gray-700'}`;
-                
-                // Decode HTML entities from the comment body for proper rendering
-                const decodedBody = new DOMParser().parseFromString(commentData.body_html, 'text/html').body.innerHTML;
-                
-                commentDiv.innerHTML = `
-                    <div class="flex items-center text-xs text-gray-400 mb-1">
-                        <span class="font-semibold text-purple-400">${commentData.author}</span>
-                        <span class="mx-2">&#8226;</span>
-                        <span>${commentData.score} points</span>
-                    </div>
-                    <div class="text-gray-200 text-sm prose prose-invert max-w-none">${decodedBody}</div>
-                `;
-                parentElement.appendChild(commentDiv);
-
-                // Render replies recursively
-                if (commentData.replies?.data?.children) {
-                    const repliesContainer = document.createElement('div');
-                    commentDiv.appendChild(repliesContainer);
-                    commentData.replies.data.children.forEach(reply => renderComment(reply.data, repliesContainer, level + 1));
-                }
+                }, 300);
             }
 
             // --- Navigation Event Handlers ---
             function handleWheel(e) {
-                e.preventDefault(); // Prevent page scroll
-                // If placeholder is active, scroll starts the feed
-                if (document.getElementById('placeholder')) {
-                    fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
-                    return;
-                }
+                e.preventDefault();
+                // Do nothing if the placeholder is still visible
+                if (document.getElementById('placeholder')) return;
                 changeSlide(e.deltaY > 0 ? 1 : -1);
             }
 
@@ -715,19 +595,21 @@
             }
 
             function handleTouchEnd(e) {
+                // Do nothing if the placeholder is still visible
+                if (document.getElementById('placeholder')) return;
+
                 const touchEndY = e.changedTouches[0].clientY;
                 const deltaY = touchStartY - touchEndY;
                 if (Math.abs(deltaY) > 50) { // Threshold for a valid swipe
-                    // If placeholder is active, swipe starts the feed
-                    if (document.getElementById('placeholder')) {
-                        fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
-                        return;
-                    }
                     changeSlide(deltaY > 0 ? 1 : -1);
                 }
             }
             
             // --- UI Event Listeners ---
+            getStartedBtn.addEventListener('click', () => {
+                 fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+            });
+
             searchBtn.addEventListener('click', () => {
                 searchModal.classList.remove('hidden');
                 subredditInput.focus();
@@ -740,18 +622,11 @@
             subredditInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') handleSearch();
             });
-            homeBtn.addEventListener('click', () => fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true));
-            closeCommentsBtn.addEventListener('click', () => commentsModal.classList.add('hidden'));
-            commentsModal.addEventListener('click', (e) => {
-                if (e.target === commentsModal) commentsModal.classList.add('hidden');
-            });
 
             // Add scroll and swipe listeners for navigation
             videoContainer.addEventListener('wheel', handleWheel, { passive: false });
             videoContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
             videoContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-            // No initial load, user must initiate the first feed.
         });
     </script>
 </body>
