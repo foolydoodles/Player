@@ -139,12 +139,9 @@
         
         <!-- Main video container -->
         <main id="video-container">
-            <!-- Initial placeholder shown while loading -->
-            <div id="placeholder" class="video-slide active text-center text-gray-400">
-                <div class="flex flex-col items-center justify-center h-full w-full">
-                    <h1 class="text-3xl font-bold">Reddit Video Feed</h1>
-                    <p class="mt-2">Loading popular videos...</p>
-                </div>
+            <!-- Initial placeholder with instructions -->
+            <div id="placeholder" class="video-slide active text-center text-gray-300 p-8">
+                <h1 class="text-4xl font-bold text-white">Start Scrolling For Reddit Brainrot</h1>
             </div>
         </main>
     </div>
@@ -201,7 +198,6 @@
             let currentIndex = 0; // Index of the currently active video slide
             let isNavigating = false; // Debounce flag for slide navigation
             let touchStartY = 0; // For tracking touch swipe gestures
-            let isFirstPlay = true; // Flag to ensure the first video is always muted
 
             /**
              * Shows a toast notification at the bottom of the screen.
@@ -243,9 +239,11 @@
                     }
                     
                     // Remove the initial placeholder if it exists
-                    if (isNewFeed && document.getElementById('placeholder')) {
-                        document.getElementById('placeholder').remove();
+                    const placeholder = document.getElementById('placeholder');
+                    if (placeholder) {
+                        placeholder.remove();
                     }
+                    
                     appendVideos(videos);
                     if (isNewFeed) {
                         showSlide(0); // Show the first video of the new feed
@@ -268,12 +266,6 @@
                 currentAfterToken = null;
                 isLoadingMore = false;
                 currentIndex = 0;
-                // Re-add the placeholder div for the next load
-                const placeholder = document.createElement('div');
-                placeholder.id = 'placeholder';
-                placeholder.className = 'video-slide active text-center text-gray-400';
-                placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full w-full"><h1 class="text-3xl font-bold">Reddit Video Feed</h1><p class="mt-2">Loading popular videos...</p></div>`;
-                videoContainer.appendChild(placeholder);
             }
 
             /**
@@ -290,7 +282,7 @@
                     // Create video element
                     const video = document.createElement('video');
                     video.loop = true;
-                    video.muted = true; // Start muted for better autoplay compatibility
+                    video.muted = true; // Start all videos muted, playVideo will handle unmuting
                     video.controls = false;
                     video.preload = 'metadata';
                     video.poster = videoData.thumbnail; // Use thumbnail as poster image
@@ -471,14 +463,8 @@
                     }
                 });
 
-                // The first video should always be muted for autoplay compatibility.
-                // Subsequent videos will attempt to play unmuted.
-                if (isFirstPlay) {
-                    videoElement.muted = true;
-                    isFirstPlay = false; // Set flag to false after the first video has been handled
-                } else {
-                    videoElement.muted = false; // Attempt to unmute for subsequent videos
-                }
+                // Always attempt to play unmuted. The catch block will handle failures.
+                videoElement.muted = false;
 
                 const muteButton = videoElement.closest('.video-slide').querySelector('button[title="Toggle Mute"]');
                 if (muteButton) {
@@ -716,6 +702,11 @@
             // --- Navigation Event Handlers ---
             function handleWheel(e) {
                 e.preventDefault(); // Prevent page scroll
+                // If placeholder is active, scroll starts the feed
+                if (document.getElementById('placeholder')) {
+                    fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+                    return;
+                }
                 changeSlide(e.deltaY > 0 ? 1 : -1);
             }
 
@@ -727,6 +718,11 @@
                 const touchEndY = e.changedTouches[0].clientY;
                 const deltaY = touchStartY - touchEndY;
                 if (Math.abs(deltaY) > 50) { // Threshold for a valid swipe
+                    // If placeholder is active, swipe starts the feed
+                    if (document.getElementById('placeholder')) {
+                        fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+                        return;
+                    }
                     changeSlide(deltaY > 0 ? 1 : -1);
                 }
             }
@@ -755,8 +751,7 @@
             videoContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
             videoContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
 
-            // --- Initial Load ---
-            fetchVideos(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+            // No initial load, user must initiate the first feed.
         });
     </script>
 </body>
