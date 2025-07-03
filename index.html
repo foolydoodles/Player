@@ -201,6 +201,7 @@
             let currentIndex = 0; // Index of the currently active video slide
             let isNavigating = false; // Debounce flag for slide navigation
             let touchStartY = 0; // For tracking touch swipe gestures
+            let isFirstPlay = true; // Flag to ensure the first video is always muted
 
             /**
              * Shows a toast notification at the bottom of the screen.
@@ -470,13 +471,30 @@
                     }
                 });
 
+                // The first video should always be muted for autoplay compatibility.
+                // Subsequent videos will attempt to play unmuted.
+                if (isFirstPlay) {
+                    videoElement.muted = true;
+                    isFirstPlay = false; // Set flag to false after the first video has been handled
+                } else {
+                    videoElement.muted = false; // Attempt to unmute for subsequent videos
+                }
+
+                const muteButton = videoElement.closest('.video-slide').querySelector('button[title="Toggle Mute"]');
+                if (muteButton) {
+                    const unmutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15z" /></svg>`;
+                    const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
+                    muteButton.innerHTML = videoElement.muted ? mutedIcon : unmutedIcon;
+                }
+
                 const playPromise = () => {
                     videoElement.play().catch(e => {
                         console.warn("Autoplay failed, likely due to browser policy:", e);
+                        // If autoplay with sound failed, force it to be muted and update the UI.
                         videoElement.muted = true;
-                        const muteButton = videoElement.closest('.video-slide').querySelector('button[title="Toggle Mute"]');
-                        if (muteButton) { // Update mute button icon to reflect muted state
-                            muteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
+                        if (muteButton) {
+                            const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707a1 1 0 011.414 0v14.142a1 1 0 01-1.414 0L5.586 15zm10.778-9.778a1 1 0 010 1.414L15.12 9.879a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l1.414-1.414a1 1 0 011.414 0l1.243 1.243z" /></svg>`;
+                            muteButton.innerHTML = mutedIcon;
                         }
                     });
                 };
