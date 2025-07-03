@@ -168,13 +168,12 @@
             <input type="text" id="subreddit-input" placeholder="Search or enter r/..." class="w-full pl-4 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-white">
         </div>
 
-        <!-- Content Type Toggle -->
-        <div class="flex items-center justify-between mb-6 p-3 bg-gray-800 rounded-lg">
-            <span class="text-gray-300 font-medium">Show Images Instead</span>
-            <label for="content-toggle" class="inline-flex relative items-center cursor-pointer">
-                <input type="checkbox" value="" id="content-toggle" class="sr-only peer">
-                <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
+        <!-- NEW Content Type Toggle -->
+        <div class="flex items-center justify-center mb-6">
+            <div class="flex w-full bg-gray-800 rounded-full p-1">
+                <button id="video-mode-btn" class="w-1/2 py-2 text-sm font-medium rounded-full transition-colors duration-300">Videos</button>
+                <button id="image-mode-btn" class="w-1/2 py-2 text-sm font-medium rounded-full transition-colors duration-300">Images</button>
+            </div>
         </div>
 
         <!-- List of popular feeds -->
@@ -201,7 +200,8 @@
             const subredditInput = document.getElementById('subreddit-input');
             const popularFeedsList = document.getElementById('popular-feeds-list');
             const getStartedBtn = document.getElementById('get-started-btn');
-            const contentToggle = document.getElementById('content-toggle');
+            const videoModeBtn = document.getElementById('video-mode-btn');
+            const imageModeBtn = document.getElementById('image-mode-btn');
             
             // --- State Variables ---
             let hlsInstances = {};
@@ -589,6 +589,23 @@
                 sideMenu.classList.remove('open');
             }
 
+            /**
+             * Updates the appearance of the mode toggle buttons.
+             */
+            function updateModeButtons() {
+                if (fetchMode === 'video') {
+                    videoModeBtn.classList.add('bg-purple-600', 'text-white');
+                    videoModeBtn.classList.remove('text-gray-400');
+                    imageModeBtn.classList.remove('bg-purple-600', 'text-white');
+                    imageModeBtn.classList.add('text-gray-400');
+                } else {
+                    imageModeBtn.classList.add('bg-purple-600', 'text-white');
+                    imageModeBtn.classList.remove('text-gray-400');
+                    videoModeBtn.classList.remove('bg-purple-600', 'text-white');
+                    videoModeBtn.classList.add('text-gray-400');
+                }
+            }
+
             // --- Event Listeners ---
             getStartedBtn.addEventListener('click', () => {
                 fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
@@ -602,8 +619,20 @@
                 if (e.key === 'Enter') handleSearch();
             });
 
-            contentToggle.addEventListener('change', () => {
-                fetchMode = contentToggle.checked ? 'image' : 'video';
+            videoModeBtn.addEventListener('click', () => {
+                if (fetchMode === 'video') return; // Do nothing if already active
+                fetchMode = 'video';
+                updateModeButtons();
+                if (currentFeedUrl) {
+                    const baseUrl = currentFeedUrl.split('&after=')[0];
+                    fetchContent(baseUrl, true);
+                }
+            });
+
+            imageModeBtn.addEventListener('click', () => {
+                if (fetchMode === 'image') return; // Do nothing if already active
+                fetchMode = 'image';
+                updateModeButtons();
                 if (currentFeedUrl) {
                     const baseUrl = currentFeedUrl.split('&after=')[0];
                     fetchContent(baseUrl, true);
@@ -627,6 +656,7 @@
 
             // --- Initial Setup ---
             populatePopularFeeds();
+            updateModeButtons(); // Set initial state of the new toggle
         });
     </script>
 </body>
