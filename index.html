@@ -168,11 +168,12 @@
             <input type="text" id="subreddit-input" placeholder="Search or enter r/..." class="w-full pl-4 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-full focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-white">
         </div>
 
-        <!-- NEW Content Type Toggle -->
+        <!-- Content Type Toggle -->
         <div class="flex items-center justify-center mb-6">
             <div class="flex w-full bg-gray-800 rounded-full p-1">
-                <button id="video-mode-btn" class="w-1/2 py-2 text-sm font-medium rounded-full transition-colors duration-300">Videos</button>
-                <button id="image-mode-btn" class="w-1/2 py-2 text-sm font-medium rounded-full transition-colors duration-300">Images</button>
+                <button id="video-mode-btn" class="w-1/3 py-2 text-sm font-medium rounded-full transition-colors duration-300">Videos</button>
+                <button id="image-mode-btn" class="w-1/3 py-2 text-sm font-medium rounded-full transition-colors duration-300">Images</button>
+                <button id="both-mode-btn" class="w-1/3 py-2 text-sm font-medium rounded-full transition-colors duration-300">Both</button>
             </div>
         </div>
 
@@ -202,6 +203,7 @@
             const getStartedBtn = document.getElementById('get-started-btn');
             const videoModeBtn = document.getElementById('video-mode-btn');
             const imageModeBtn = document.getElementById('image-mode-btn');
+            const bothModeBtn = document.getElementById('both-mode-btn');
             
             // --- State Variables ---
             let hlsInstances = {};
@@ -211,7 +213,7 @@
             let currentIndex = 0;
             let isNavigating = false;
             let touchStartY = 0;
-            let fetchMode = 'video'; // 'video' or 'image'
+            let fetchMode = 'video'; // 'video', 'image', or 'both'
 
             const POPULAR_SUBREDDITS = [
                 'popular', 'videos', 'funny', 'aww', 'Unexpected', 'nextfuckinglevel', 'Damnthatsinteresting', 
@@ -255,13 +257,16 @@
                 setTimeout(() => statusToast.classList.add('opacity-0'), 3000);
             }
             
+            const isVideoPost = post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url;
+            const isImagePost = post => !post.is_video && post.post_hint === 'image' && post.url_overridden_by_dest && (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'));
+
             /**
              * Fetches content from a Reddit JSON endpoint based on the current fetchMode.
              */
             async function fetchContent(url, isNewFeed = false) {
                 if (isNewFeed) {
                     clearFeed();
-                    showStatus(`Fetching ${fetchMode}s...`);
+                    showStatus(`Fetching ${fetchMode}...`);
                 }
                 currentFeedUrl = url;
 
@@ -275,18 +280,15 @@
 
                     let filteredContent;
                     if (fetchMode === 'video') {
-                        filteredContent = posts.filter(post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url);
-                    } else { // image mode
-                        filteredContent = posts.filter(post => 
-                            !post.is_video && 
-                            post.post_hint === 'image' &&
-                            post.url_overridden_by_dest &&
-                            (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'))
-                        );
+                        filteredContent = posts.filter(isVideoPost);
+                    } else if (fetchMode === 'image') {
+                        filteredContent = posts.filter(isImagePost);
+                    } else { // 'both' mode
+                        filteredContent = posts.filter(post => isVideoPost(post) || isImagePost(post));
                     }
 
                     if (filteredContent.length === 0) {
-                        if (isNewFeed) showStatus(`No ${fetchMode}s found in this feed.`, true);
+                        if (isNewFeed) showStatus(`No matching content found in this feed.`, true);
                         return;
                     }
                     
@@ -296,7 +298,7 @@
                     appendContent(filteredContent);
                     if (isNewFeed) {
                         showSlide(0);
-                        showStatus(`Loaded ${filteredContent.length} ${fetchMode}s.`);
+                        showStatus(`Loaded ${filteredContent.length} posts.`);
                     }
 
                 } catch (error) {
@@ -370,7 +372,7 @@
                     
                     const downloadIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>`;
 
-                    if (fetchMode === 'video') {
+                    if (isVideoPost(postData)) {
                         slide.classList.add('paused');
                         const video = document.createElement('video');
                         video.loop = true; video.muted = true; video.controls = false;
@@ -402,7 +404,7 @@
                             if (e.target.closest('button, a')) return;
                             video.paused ? video.play() : video.pause();
                         });
-                    } else { // Image mode
+                    } else if (isImagePost(postData)) {
                         const img = document.createElement('img');
                         img.src = postData.url_overridden_by_dest;
                         img.alt = postData.title;
@@ -440,7 +442,7 @@
             async function loadMoreContent() {
                 if (isLoadingMore || !currentAfterToken) return;
                 isLoadingMore = true;
-                showStatus(`Loading more ${fetchMode}s...`);
+                showStatus(`Loading more content...`);
                 try {
                     const response = await fetch(`${currentFeedUrl}&after=${currentAfterToken}`);
                     if (!response.ok) throw new Error('Failed to load more content.');
@@ -450,14 +452,11 @@
                     const posts = data.data.children.map(post => post.data);
                     let newContent;
                     if (fetchMode === 'video') {
-                        newContent = posts.filter(post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url);
-                    } else {
-                        newContent = posts.filter(post => 
-                            !post.is_video && 
-                            post.post_hint === 'image' &&
-                            post.url_overridden_by_dest &&
-                            (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'))
-                        );
+                        newContent = posts.filter(isVideoPost);
+                    } else if (fetchMode === 'image') {
+                        newContent = posts.filter(isImagePost);
+                    } else { // 'both' mode
+                        newContent = posts.filter(post => isVideoPost(post) || isImagePost(post));
                     }
 
                     if (newContent.length > 0) {
@@ -593,16 +592,42 @@
              * Updates the appearance of the mode toggle buttons.
              */
             function updateModeButtons() {
-                if (fetchMode === 'video') {
-                    videoModeBtn.classList.add('bg-purple-600', 'text-white');
-                    videoModeBtn.classList.remove('text-gray-400');
-                    imageModeBtn.classList.remove('bg-purple-600', 'text-white');
-                    imageModeBtn.classList.add('text-gray-400');
-                } else {
-                    imageModeBtn.classList.add('bg-purple-600', 'text-white');
-                    imageModeBtn.classList.remove('text-gray-400');
-                    videoModeBtn.classList.remove('bg-purple-600', 'text-white');
-                    videoModeBtn.classList.add('text-gray-400');
+                const buttons = {
+                    video: videoModeBtn,
+                    image: imageModeBtn,
+                    both: bothModeBtn
+                };
+                for (const mode in buttons) {
+                    if (mode === fetchMode) {
+                        buttons[mode].classList.add('bg-purple-600', 'text-white');
+                        buttons[mode].classList.remove('text-gray-400');
+                    } else {
+                        buttons[mode].classList.remove('bg-purple-600', 'text-white');
+                        buttons[mode].classList.add('text-gray-400');
+                    }
+                }
+            }
+            
+            /**
+             * Sets up the event listeners for the mode toggle buttons.
+             */
+            function setupModeButtons() {
+                const modes = {
+                    video: videoModeBtn,
+                    image: imageModeBtn,
+                    both: bothModeBtn
+                };
+
+                for (const mode in modes) {
+                    modes[mode].addEventListener('click', () => {
+                        if (fetchMode === mode) return; // Do nothing if already active
+                        fetchMode = mode;
+                        updateModeButtons();
+                        if (currentFeedUrl) {
+                            const baseUrl = currentFeedUrl.split('&after=')[0];
+                            fetchContent(baseUrl, true);
+                        }
+                    });
                 }
             }
 
@@ -617,26 +642,6 @@
 
             subredditInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') handleSearch();
-            });
-
-            videoModeBtn.addEventListener('click', () => {
-                if (fetchMode === 'video') return; // Do nothing if already active
-                fetchMode = 'video';
-                updateModeButtons();
-                if (currentFeedUrl) {
-                    const baseUrl = currentFeedUrl.split('&after=')[0];
-                    fetchContent(baseUrl, true);
-                }
-            });
-
-            imageModeBtn.addEventListener('click', () => {
-                if (fetchMode === 'image') return; // Do nothing if already active
-                fetchMode = 'image';
-                updateModeButtons();
-                if (currentFeedUrl) {
-                    const baseUrl = currentFeedUrl.split('&after=')[0];
-                    fetchContent(baseUrl, true);
-                }
             });
 
             contentContainer.addEventListener('wheel', (e) => {
@@ -656,7 +661,8 @@
 
             // --- Initial Setup ---
             populatePopularFeeds();
-            updateModeButtons(); // Set initial state of the new toggle
+            updateModeButtons();
+            setupModeButtons();
         });
     </script>
 </body>
