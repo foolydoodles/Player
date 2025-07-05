@@ -237,6 +237,7 @@
         let fetchMode = 'video'; // 'video', 'image', or 'both'
         let globalVolume = 0.2; // Persistent volume level, starts at 20%
         let isGloballyMuted = false; // Persistent mute state
+        let isDeepLinkSession = false; // Flag to check if session started from a deep link
 
         const POPULAR_SUBREDDITS = [
             'popular', 'videos', 'funny', 'aww', 'Unexpected', 'nextfuckinglevel', 'Damnthatsinteresting', 
@@ -661,6 +662,13 @@
          */
         function changeSlide(direction) {
             if (isNavigating) return;
+
+            // If this is the first scroll in a deep link session, clean the URL
+            if (isDeepLinkSession) {
+                history.pushState("", document.title, window.location.pathname + window.location.search);
+                isDeepLinkSession = false; // Ensure this only happens once
+            }
+
             const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
             if (slides.length === 0) return;
             let newIndex = currentIndex + direction;
@@ -786,6 +794,7 @@
                     
                     // Call fetchContent with the full feed URL, telling it to start on the specific post
                     await fetchContent(fullFeedUrl, true, postId);
+                    isDeepLinkSession = true; // Set flag indicating session started with a deep link
 
                 } catch (error) {
                     console.error('Deep link error:', error);
