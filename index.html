@@ -234,9 +234,9 @@
         let currentIndex = 0;
         let isNavigating = false;
         let touchStartY = 0;
-        let fetchMode = 'video'; // 'video', 'image', or 'both'
-        let globalVolume = 0.5; // Start with a default volume
-        let isGloballyMuted = false; // Start unmuted
+        let fetchMode = 'video';
+        let globalVolume = 0.5;
+        let isGloballyMuted = false;
         let isDeepLinkSession = false; 
 
         const POPULAR_SUBREDDITS = [
@@ -248,6 +248,19 @@
         // --- Icon Definitions ---
         const volumeUpIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" /></svg>`;
         const volumeOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
+
+        // --- Utility Functions ---
+        const isVideoPost = post => post.is_video && post.media?.reddit_video && post.media.reddit_video.hls_url;
+        const isImagePost = post => !post.is_video && post.post_hint === 'image' && post.url_overridden_by_dest && (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'));
+
+        function showStatus(message, isError = false) {
+            statusToast.textContent = message;
+            statusToast.className = `fixed bottom-5 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded-lg shadow-lg transition-opacity duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-[#0079D3]'}`;
+            statusToast.classList.remove('opacity-0');
+            setTimeout(() => statusToast.classList.add('opacity-0'), 3000);
+        }
+
+        // --- Core Application Logic ---
 
         /**
          * Fetches content from a Reddit JSON endpoint, using a CORS proxy.
@@ -309,6 +322,7 @@
 
         /**
          * Appends content (videos or images) as slides to the container.
+         * THIS FUNCTION IS CORRECTED TO RESTORE BUTTON EVENT LISTENERS.
          */
         function appendContent(content) {
             content.forEach((postData) => {
@@ -316,7 +330,6 @@
                 slide.id = `slide-${postData.id}`;
                 slide.className = 'content-slide';
 
-                // ... (infoOverlay, buttonContainer, createButton, shareButton, downloadIcon definitions are the same)
                 const infoOverlay = `
                     <div class="absolute bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-black/80 to-transparent text-white">
                         <h3 class="font-bold text-lg leading-tight pointer-events-none">${postData.title}</h3>
@@ -350,7 +363,7 @@
                         textArea.value = shareUrl;
                         textArea.style.position = 'fixed'; textArea.style.top = '-9999px'; textArea.style.left = '-9999px';
                         document.body.appendChild(textArea);
-textArea.focus(); textArea.select();
+                        textArea.focus(); textArea.select();
                         try {
                             document.execCommand('copy') ? showStatus("Link copied!") : showStatus("Copy failed.", true);
                         } catch (err) {
@@ -369,12 +382,9 @@ textArea.focus(); textArea.select();
                     video.controls = false;
                     video.preload = 'metadata'; 
                     video.poster = postData.thumbnail;
-                    
-                    video.playsInline = true; 
-                    video.muted = isGloballyMuted; // Respect global mute state
-
+                    video.playsInline = true;
                     video.dataset.hlsUrl = postData.media.reddit_video.hls_url;
-                    
+
                     const playOverlay = document.createElement('div');
                     playOverlay.className = 'play-overlay';
                     playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
@@ -403,30 +413,37 @@ textArea.focus(); textArea.select();
 
                     const volumeButton = createButton('Volume', isGloballyMuted ? volumeOffIcon : volumeUpIcon, null);
 
+                    // RESTORED EVENT LISTENERS
                     video.addEventListener('volumechange', () => {
-                        isGloballyMuted = video.muted;
+                        const isMuted = video.muted || video.volume === 0;
+                        volumeButton.innerHTML = isMuted ? volumeOffIcon : volumeUpIcon;
+                        volumeSlider.value = isMuted ? 0 : video.volume * 100;
+                        // Update global state
+                        isGloballyMuted = isMuted;
                         globalVolume = video.volume;
-                        volumeButton.innerHTML = (video.muted || video.volume === 0) ? volumeOffIcon : volumeUpIcon;
-                        volumeSlider.value = video.muted ? 0 : video.volume * 100;
                     });
                     
                     volumeButton.addEventListener('click', (e) => {
                         e.stopPropagation();
                         video.muted = !video.muted;
+                        // Show slider on interaction
+                        clearTimeout(volumeTimeout);
+                        volumeSliderContainer.classList.remove('hidden');
+                        volumeTimeout = setTimeout(() => {
+                            volumeSliderContainer.classList.add('hidden');
+                        }, 3000);
                     });
 
                     volumeSlider.addEventListener('input', () => {
                         const newVolume = volumeSlider.value / 100;
                         video.volume = newVolume;
                         video.muted = newVolume === 0;
-                        
-                        clearTimeout(volumeTimeout);
+                        clearTimeout(volumeTimeout); // Keep slider open while adjusting
                         volumeTimeout = setTimeout(() => {
                             volumeSliderContainer.classList.add('hidden');
                         }, 3000);
                     });
-
-                    // This part of the logic was simplified from the original but can be added back if complex interactions are needed.
+                    
                     volumeControlContainer.append(volumeSliderContainer, volumeButton);
                     buttonContainer.append(volumeControlContainer, downloadLink, shareButton);
                     slide.append(video, playOverlay, buttonContainer);
@@ -438,7 +455,6 @@ textArea.focus(); textArea.select();
                         video.paused ? video.play() : video.pause();
                     });
                 } else if (isImagePost(postData)) {
-                    // ... (image handling code remains the same)
                     const img = document.createElement('img');
                     img.src = postData.url_overridden_by_dest;
                     img.alt = postData.title;
@@ -461,7 +477,7 @@ textArea.focus(); textArea.select();
                 const subredditLink = slide.querySelector('.subreddit-link');
                 subredditLink.onclick = (e) => {
                     e.stopPropagation();
-                    const subreddit = e.target.closest('.subreddit-link').dataset.subreddit;
+                    const subreddit = e.currentTarget.dataset.subreddit;
                     const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/hot.json?limit=50`;
                     fetchContent(url, true);
                 };
@@ -480,7 +496,6 @@ textArea.focus(); textArea.select();
             Object.keys(hlsInstances).forEach(key => {
                 if (key !== slideId && hlsInstances[key]) {
                     hlsInstances[key].destroy();
-                    delete hlsInstances[key];
                 }
             });
 
@@ -492,7 +507,6 @@ textArea.focus(); textArea.select();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
                         console.warn("Autoplay with sound failed. Muting to retry.", error);
-                        // Mute and try again
                         videoElement.muted = true;
                         videoElement.play();
                     });
@@ -516,72 +530,7 @@ textArea.focus(); textArea.select();
                 }
             }
         }
-        
-        // --- Core Functions (showSlide, changeSlide, handleSearch, etc. remain mostly the same, with minor tweaks for new state) ---
-        // ... all other functions like clearFeed, loadMoreContent, showSlide, changeSlide, handleSearch, menu functions, etc.
-        // from the previous version are included here without change, as they are compatible with the new logic.
-        // For brevity, I will only show the remaining functions that were directly impacted or are core to the logic.
 
-        /**
-         * Clears the content feed and resets state variables.
-         */
-        function clearFeed() {
-            Object.values(hlsInstances).forEach(hls => hls.destroy());
-            hlsInstances = {};
-            contentContainer.innerHTML = '';
-            currentAfterToken = null;
-            isLoadingMore = false;
-            currentIndex = 0;
-        }
-
-        /**
-         * Loads more content for infinite scroll, using a CORS proxy.
-         */
-        async function loadMoreContent(isAutomatic = false) {
-            if (isLoadingMore || !currentAfterToken) {
-                if (!isAutomatic) showStatus("No more posts to load right now.");
-                return;
-            }
-            isLoadingMore = true;
-            if (!isAutomatic) {
-                showStatus(`Loading more content...`);
-            }
-            try {
-                const fetchUrl = `${currentFeedUrl.split('?')[0]}?limit=50&after=${currentAfterToken}`;
-                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(fetchUrl);
-                const response = await fetch(proxyUrl);
-
-                if (!response.ok) throw new Error('Failed to load more content.');
-                const data = await response.json();
-                
-                const newAfterToken = data.data.after;
-                const posts = data.data.children.map(post => post.data);
-                let newContent;
-                if (fetchMode === 'video') {
-                    newContent = posts.filter(isVideoPost);
-                } else if (fetchMode === 'image') {
-                    newContent = posts.filter(isImagePost);
-                } else { // 'both' mode
-                    newContent = posts.filter(post => isVideoPost(post) || isImagePost(post));
-                }
-
-                if (newContent.length > 0) {
-                    appendContent(newContent);
-                }
-                
-                currentAfterToken = newAfterToken;
-                if (!currentAfterToken) {
-                     if (!isAutomatic) showStatus("You've reached the end of the feed!");
-                }
-
-            } catch (error) {
-                console.error("Load more error:", error);
-                showStatus(error.message, true);
-            } finally {
-                isLoadingMore = false;
-            }
-        }
-        
         /**
          * Shows a specific slide by its index.
          */
@@ -607,47 +556,76 @@ textArea.focus(); textArea.select();
                 loadMoreContent(true);
             }
         }
+
+        // --- Other Functions (clearFeed, loadMoreContent, changeSlide, menu logic, etc.) ---
+        // These functions from the previous version remain correct and are included here for completeness.
         
-        /**
-         * Navigates to the next or previous slide.
-         */
+        function clearFeed() {
+            Object.values(hlsInstances).forEach(hls => { if(hls) hls.destroy(); });
+            hlsInstances = {};
+            contentContainer.innerHTML = '';
+            currentAfterToken = null;
+            isLoadingMore = false;
+            currentIndex = 0;
+        }
+
+        async function loadMoreContent(isAutomatic = false) {
+            if (isLoadingMore || !currentAfterToken) {
+                if (!isAutomatic) showStatus("No more posts to load right now.");
+                return;
+            }
+            isLoadingMore = true;
+            if (!isAutomatic) { showStatus(`Loading more content...`); }
+            try {
+                const fetchUrl = `${currentFeedUrl.split('?')[0]}?limit=50&after=${currentAfterToken}`;
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(fetchUrl);
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Failed to load more content.');
+                const data = await response.json();
+                
+                const newAfterToken = data.data.after;
+                const posts = data.data.children.map(post => post.data);
+                let newContent;
+                if (fetchMode === 'video') { newContent = posts.filter(isVideoPost); } 
+                else if (fetchMode === 'image') { newContent = posts.filter(isImagePost); } 
+                else { newContent = posts.filter(post => isVideoPost(post) || isImagePost(post)); }
+
+                if (newContent.length > 0) { appendContent(newContent); }
+                currentAfterToken = newAfterToken;
+                if (!currentAfterToken) { if (!isAutomatic) showStatus("You've reached the end of the feed!"); }
+            } catch (error) {
+                console.error("Load more error:", error);
+                showStatus(error.message, true);
+            } finally {
+                isLoadingMore = false;
+            }
+        }
+
         function changeSlide(direction) {
             if (isNavigating) return;
-
             if (isDeepLinkSession) {
                 history.pushState("", document.title, window.location.pathname + window.location.search);
                 isDeepLinkSession = false; 
             }
-
             const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
             if (slides.length === 0) return;
             let newIndex = currentIndex + direction;
-
             if (newIndex < 0) {
                 showStatus("Already at the first post.");
                 return;
             }
-            
             if (direction > 0 && newIndex >= slides.length) {
                 loadMoreContent();
                 return; 
             }
-            
             isNavigating = true;
             showSlide(newIndex);
             setTimeout(() => { isNavigating = false; }, 300); 
         }
 
-        // --- All other utility and event listener functions from the previous step are assumed to be here ---
-        // (handleSearch, openMenu, closeMenu, updateModeButtons, setupModeButtons, handleDeepLink, and event listeners)
-
-        /**
-         * Handles the search submission from the side menu.
-         */
         async function handleSearch() {
             const query = subredditInput.value.trim();
             if (!query) return;
-
             let searchUrl;
             if (query.toLowerCase().startsWith('r/')) {
                 const subredditName = query.substring(2);
@@ -655,7 +633,6 @@ textArea.focus(); textArea.select();
             } else {
                 searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=relevance&t=all&type=link&limit=50`;
             }
-            
             await fetchContent(searchUrl, true);
             closeMenu();
             subredditInput.value = '';
@@ -672,11 +649,7 @@ textArea.focus(); textArea.select();
         }
 
         function updateModeButtons() {
-            const buttons = {
-                video: videoModeBtn,
-                image: imageModeBtn,
-                both: bothModeBtn
-            };
+            const buttons = { video: videoModeBtn, image: imageModeBtn, both: bothModeBtn };
             for (const mode in buttons) {
                 if (mode === fetchMode) {
                     buttons[mode].classList.add('bg-[#0079D3]', 'text-white');
@@ -689,12 +662,7 @@ textArea.focus(); textArea.select();
         }
         
         function setupModeButtons() {
-            const modes = {
-                video: videoModeBtn,
-                image: imageModeBtn,
-                both: bothModeBtn
-            };
-
+            const modes = { video: videoModeBtn, image: imageModeBtn, both: bothModeBtn };
             for (const mode in modes) {
                 modes[mode].addEventListener('click', () => {
                     if (fetchMode === mode) return;
@@ -708,14 +676,10 @@ textArea.focus(); textArea.select();
             }
         }
         
-        /**
-         * Handles loading content from a deep link, using a CORS proxy.
-         */
         async function handleDeepLink() {
             if (!window.location.hash) return;
             const postId = window.location.hash.substring(1);
             if (!postId) return;
-
             const placeholder = document.getElementById('placeholder');
             const placeholderText = placeholder?.querySelector('p');
             const getStartedBtn = document.getElementById('get-started-btn');
@@ -724,35 +688,28 @@ textArea.focus(); textArea.select();
                 if (placeholderText) placeholderText.textContent = "Loading shared post...";
                 if (getStartedBtn) getStartedBtn.classList.add('hidden');
                 showStatus("Fetching shared post...");
-
                 try {
                     const singlePostUrl = `https://www.reddit.com/by_id/t3_${postId}.json`;
                     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(singlePostUrl);
                     const response = await fetch(proxyUrl);
-
                     if (!response.ok) throw new Error("Could not find the shared post.");
                     const postData = await response.json();
                     
                     const post = postData?.data?.children?.[0]?.data;
                     if (!post) throw new Error("Shared post data is invalid.");
-
                     const subredditName = post.subreddit;
                     showStatus(`Found post in r/${subredditName}. Loading feed...`);
-
                     fetchMode = 'both'; 
                     updateModeButtons();
                     const fullFeedUrl = `https://www.reddit.com/r/${encodeURIComponent(subredditName)}/hot.json?limit=50`;
-                    
                     await fetchContent(fullFeedUrl, true, postId);
                     isDeepLinkSession = true;
-
                 } catch (error) {
                     console.error('Deep link error:', error);
                     showStatus(error.message, true);
                     if (placeholderText) placeholderText.textContent = "Sorry, couldn't load the shared post.";
                 }
             };
-
             if (isIphone()) {
                 if (placeholderText) placeholderText.textContent = "A post was shared with you. Tap 'Load Post' to view.";
                 if (getStartedBtn) {
@@ -763,41 +720,45 @@ textArea.focus(); textArea.select();
                 await startDeepLinkLoad();
             }
         }
+        
+        // --- Initial Setup & Event Listeners ---
+        function init() {
+            populatePopularFeeds();
+            updateModeButtons();
+            setupModeButtons();
 
-        // --- Initial Setup and Event Listeners ---
-        populatePopularFeeds();
-        updateModeButtons();
-        setupModeButtons();
+            menuBtn.addEventListener('click', openMenu);
+            closeMenuBtn.addEventListener('click', closeMenu);
+            menuOverlay.addEventListener('click', closeMenu);
 
-        menuBtn.addEventListener('click', openMenu);
-        closeMenuBtn.addEventListener('click', closeMenu);
-        menuOverlay.addEventListener('click', closeMenu);
-
-        subredditInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSearch();
-        });
-
-        contentContainer.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (document.getElementById('placeholder')) return;
-            changeSlide(e.deltaY > 0 ? 1 : -1);
-        }, { passive: false });
-
-        contentContainer.addEventListener('touchstart', (e) => touchStartY = e.touches[0].clientY, { passive: true });
-        contentContainer.addEventListener('touchend', (e) => {
-            if (document.getElementById('placeholder')) return;
-            const deltaY = touchStartY - e.changedTouches[0].clientY;
-            if (Math.abs(deltaY) > 50) {
-                changeSlide(deltaY > 0 ? 1 : -1);
-            }
-        }, { passive: true });
-
-        if (!window.location.hash.substring(1)) {
-            getStartedBtn.addEventListener('click', () => {
-                fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+            subredditInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleSearch();
             });
+
+            contentContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                if (document.getElementById('placeholder')) return;
+                changeSlide(e.deltaY > 0 ? 1 : -1);
+            }, { passive: false });
+
+            contentContainer.addEventListener('touchstart', (e) => touchStartY = e.touches[0].clientY, { passive: true });
+            contentContainer.addEventListener('touchend', (e) => {
+                if (document.getElementById('placeholder')) return;
+                const deltaY = touchStartY - e.changedTouches[0].clientY;
+                if (Math.abs(deltaY) > 50) {
+                    changeSlide(deltaY > 0 ? 1 : -1);
+                }
+            }, { passive: true });
+
+            if (!window.location.hash.substring(1)) {
+                getStartedBtn.addEventListener('click', () => {
+                    fetchContent(`https://www.reddit.com/r/popular/hot.json?limit=50`, true);
+                });
+            }
+            handleDeepLink();
         }
-        handleDeepLink();
+        
+        init();
     });
 </script>
 </body>
