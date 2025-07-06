@@ -236,7 +236,7 @@
         let touchStartY = 0;
         let fetchMode = 'video'; // 'video', 'image', or 'both'
         let globalVolume = 0.2; // Persistent volume level, starts at 20%
-        let isGloballyMuted = false; // Persistent mute state
+        let isGloballyMuted = true; // Start muted for autoplay compatibility
         let isDeepLinkSession = false; // Flag to check if session started from a deep link
 
         const POPULAR_SUBREDDITS = [
@@ -253,7 +253,6 @@
          * Checks if the device is an iPhone.
          */
         function isIphone() {
-            // Regular expression to check for 'iPhone' in the user agent or platform string.
             return /iPhone/.test(navigator.userAgent) || /iPhone/.test(navigator.platform);
         }
 
@@ -293,10 +292,7 @@
         const isImagePost = post => !post.is_video && post.post_hint === 'image' && post.url_overridden_by_dest && (post.url_overridden_by_dest.endsWith('.jpg') || post.url_overridden_by_dest.endsWith('.png') || post.url_overridden_by_dest.endsWith('.gif'));
 
         /**
-         * Fetches content from a Reddit JSON endpoint based on the current fetchMode.
-         * @param {string} url - The Reddit API URL to fetch.
-         * @param {boolean} [isNewFeed=false] - Whether this is a brand new feed request.
-         * @param {string|null} [initialPostId=null] - The ID of a post to start on within the fetched feed.
+         * Fetches content from a Reddit JSON endpoint, using a CORS proxy.
          */
         async function fetchContent(url, isNewFeed = false, initialPostId = null) {
             if (isNewFeed) {
@@ -306,7 +302,8 @@
             currentFeedUrl = url;
 
             try {
-                const response = await fetch(currentFeedUrl);
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(currentFeedUrl);
+                const response = await fetch(proxyUrl);
                 if (!response.ok) throw new Error(`Could not fetch content. Subreddit may be private or banned.`);
                 
                 const data = await response.json();
@@ -334,7 +331,6 @@
 
                 if (isNewFeed) {
                     let startingIndex = 0;
-                    // If an initial post ID was provided, find its index
                     if (initialPostId) {
                         const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
                         const targetIndex = Array.from(slides).findIndex(s => s.id === `slide-${initialPostId}`);
@@ -423,13 +419,18 @@
                 if (isVideoPost(postData)) {
                     slide.classList.add('paused');
                     const video = document.createElement('video');
-                    video.loop = true; video.controls = false;
-                    video.preload = 'metadata'; video.poster = postData.thumbnail;
+                    video.loop = true; 
+                    video.controls = false;
+                    video.preload = 'metadata'; 
+                    video.poster = postData.thumbnail;
+                    
+                    // --- KEY CHANGES FOR iOS ---
+                    video.playsInline = true; // Required for inline playback on iOS
+                    video.muted = true;       // Start muted to ensure autoplay works
+                    // ---------------------------
+
                     video.dataset.hlsUrl = postData.media.reddit_video.hls_url;
                     
-                    video.volume = globalVolume;
-                    video.muted = isGloballyMuted;
-
                     const playOverlay = document.createElement('div');
                     playOverlay.className = 'play-overlay';
                     playOverlay.innerHTML = `<svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>`;
@@ -463,27 +464,23 @@
                         e.stopPropagation();
                         clearTimeout(volumeTimeout);
 
-                        const isSliderHidden = volumeSliderContainer.classList.contains('hidden');
-                        if (isSliderHidden) {
-                            volumeSliderContainer.classList.remove('hidden');
-                            if (isGloballyMuted) {
-                                isGloballyMuted = false;
-                                if (globalVolume === 0) globalVolume = 0.5;
-                                document.querySelectorAll('video').forEach(v => {
-                                    v.muted = false;
-                                    v.volume = globalVolume;
-                                });
-                            }
-                        } else {
-                            isGloballyMuted = !isGloballyMuted;
-                            document.querySelectorAll('video').forEach(v => v.muted = isGloballyMuted);
+                        isGloballyMuted = !isGloballyMuted;
+                        if (!isGloballyMuted && globalVolume === 0) {
+                            globalVolume = 0.5; // Unmute to a default volume
                         }
+                        
+                        document.querySelectorAll('video').forEach(v => {
+                            v.muted = isGloballyMuted;
+                            v.volume = globalVolume;
+                        });
+                        
+                        volumeSlider.value = isGloballyMuted ? 0 : globalVolume * 100;
+                        volumeButton.innerHTML = isGloballyMuted ? volumeOffIcon : volumeUpIcon;
 
-                        if (!volumeSliderContainer.classList.contains('hidden')) {
-                            volumeTimeout = setTimeout(() => {
-                                volumeSliderContainer.classList.add('hidden');
-                            }, 3000);
-                        }
+                        volumeSliderContainer.classList.remove('hidden');
+                        volumeTimeout = setTimeout(() => {
+                            volumeSliderContainer.classList.add('hidden');
+                        }, 3000);
                     });
 
                     volumeSlider.addEventListener('input', () => {
@@ -495,16 +492,12 @@
                             v.volume = globalVolume;
                             v.muted = isGloballyMuted;
                         });
+                        volumeButton.innerHTML = isGloballyMuted ? volumeOffIcon : volumeUpIcon;
 
                         clearTimeout(volumeTimeout);
                         volumeTimeout = setTimeout(() => {
                             volumeSliderContainer.classList.add('hidden');
                         }, 3000);
-                    });
-
-                    video.addEventListener('volumechange', () => {
-                        volumeSlider.value = video.muted ? 0 : video.volume * 100;
-                        volumeButton.innerHTML = (video.muted || video.volume === 0) ? volumeOffIcon : volumeUpIcon;
                     });
                     
                     volumeControlContainer.append(volumeSliderContainer, volumeButton);
@@ -550,7 +543,7 @@
         }
         
         /**
-         * Loads more content for infinite scroll.
+         * Loads more content for infinite scroll, using a CORS proxy.
          */
         async function loadMoreContent(isAutomatic = false) {
             if (isLoadingMore || !currentAfterToken) {
@@ -562,7 +555,10 @@
                 showStatus(`Loading more content...`);
             }
             try {
-                const response = await fetch(`${currentFeedUrl.split('?')[0]}?limit=50&after=${currentAfterToken}`);
+                const fetchUrl = `${currentFeedUrl.split('?')[0]}?limit=50&after=${currentAfterToken}`;
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(fetchUrl);
+                const response = await fetch(proxyUrl);
+
                 if (!response.ok) throw new Error('Failed to load more content.');
                 const data = await response.json();
                 
@@ -595,10 +591,13 @@
         }
 
         /**
-         * Manages HLS playback for a video element.
+         * Manages HLS playback for a video element, prioritizing native iOS support.
          */
         function playVideo(videoElement) {
+            const hlsUrl = videoElement.dataset.hlsUrl;
             const slideId = videoElement.closest('.content-slide').id;
+
+            // Stop any other HLS.js instances
             Object.keys(hlsInstances).forEach(key => {
                 if (key !== slideId && hlsInstances[key]) {
                     hlsInstances[key].destroy();
@@ -606,26 +605,26 @@
                 }
             });
 
-            const playPromise = () => videoElement.play().catch(e => {
-                console.warn("Autoplay failed, retrying with mute:", e);
-                isGloballyMuted = true;
-                document.querySelectorAll('video').forEach(v => v.muted = true);
-                videoElement.play();
-            });
-
-            if (Hls.isSupported()) {
+            // For iPhone/Safari: Use native HLS support
+            if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                videoElement.src = hlsUrl;
+                videoElement.play().catch(e => {
+                    console.warn("Native HLS autoplay failed:", e);
+                });
+            } 
+            // For other browsers: Use HLS.js
+            else if (Hls.isSupported()) {
                 if (!hlsInstances[slideId]) {
                     const hls = new Hls();
-                    hls.loadSource(videoElement.dataset.hlsUrl);
-                    hls.attachMedia(videoElement);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => playPromise());
                     hlsInstances[slideId] = hls;
+                    hls.loadSource(hlsUrl);
+                    hls.attachMedia(videoElement);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        videoElement.play().catch(e => console.warn("HLS.js autoplay failed:", e));
+                    });
                 } else {
-                   playPromise();
+                    videoElement.play().catch(e => console.warn("HLS.js autoplay failed:", e));
                 }
-            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                videoElement.src = videoElement.dataset.hlsUrl;
-                playPromise();
             }
         }
 
@@ -641,8 +640,8 @@
                 if (i === index) {
                     slide.classList.add('active');
                     if (video) {
-                        video.volume = globalVolume;
                         video.muted = isGloballyMuted;
+                        video.volume = globalVolume;
                         playVideo(video);
                     }
                 } else {
@@ -756,15 +755,13 @@
         }
         
         /**
-         * Handles loading content from a deep link (URL with a hash).
-         * Fetches the post's subreddit first, then loads the whole feed.
+         * Handles loading content from a deep link, using a CORS proxy.
          */
         async function handleDeepLink() {
             if (!window.location.hash) return;
             const postId = window.location.hash.substring(1);
             if (!postId) return;
 
-            // Show a loading state on the placeholder
             const placeholder = document.getElementById('placeholder');
             const placeholderText = placeholder?.querySelector('p');
             const getStartedBtn = document.getElementById('get-started-btn');
@@ -775,9 +772,10 @@
                 showStatus("Fetching shared post...");
 
                 try {
-                    // Step 1: Fetch the single post to get its subreddit
                     const singlePostUrl = `https://www.reddit.com/by_id/t3_${postId}.json`;
-                    const response = await fetch(singlePostUrl);
+                    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(singlePostUrl);
+                    const response = await fetch(proxyUrl);
+
                     if (!response.ok) throw new Error("Could not find the shared post.");
                     const postData = await response.json();
                     
@@ -787,14 +785,12 @@
                     const subredditName = post.subreddit;
                     showStatus(`Found post in r/${subredditName}. Loading feed...`);
 
-                    // Step 2: Fetch the entire feed for that subreddit
-                    fetchMode = 'both'; // Default to 'both' for shared links to ensure it's found
+                    fetchMode = 'both'; 
                     updateModeButtons();
                     const fullFeedUrl = `https://www.reddit.com/r/${encodeURIComponent(subredditName)}/hot.json?limit=50`;
                     
-                    // Call fetchContent with the full feed URL, telling it to start on the specific post
                     await fetchContent(fullFeedUrl, true, postId);
-                    isDeepLinkSession = true; // Set flag indicating session started with a deep link
+                    isDeepLinkSession = true;
 
                 } catch (error) {
                     console.error('Deep link error:', error);
@@ -814,6 +810,7 @@
             }
         }
 
+        // --- Event Listeners & Initial Setup ---
         menuBtn.addEventListener('click', openMenu);
         closeMenuBtn.addEventListener('click', closeMenu);
         menuOverlay.addEventListener('click', closeMenu);
@@ -837,7 +834,6 @@
             }
         }, { passive: true });
 
-        // --- Initial Setup ---
         populatePopularFeeds();
         updateModeButtons();
         setupModeButtons();
