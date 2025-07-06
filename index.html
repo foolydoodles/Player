@@ -12,7 +12,7 @@
            It's mobile-first, meaning the base styles are for small screens.
            On larger screens (desktops/tablets), a media query constrains the app
            to a phone-like aspect ratio and centers it, creating black bars on the sides.
-         */
+        */
         html, body {
             height: 100dvh; /* Use dynamic viewport height for mobile compatibility */
             overflow: hidden; /* Prevents scrolling the whole page */
@@ -163,7 +163,7 @@
             <div id="placeholder" class="content-slide active flex flex-col justify-center items-center text-center text-gray-300 p-8">
                 <pre id="ascii-art" class="text-xs md:text-sm leading-tight text-center mb-6 font-mono">
   ______   ____  _           
- |  _ \ \  |  _ \| | __ _ _  _ ___ 
+ |  _ \ \  |  _ \| | __ _ _ _ ___ 
  | |_) \ \ | |_) | |/ _` | | | / __|
  |  _ < \ \|  __/| | (_| | |_| \__ \
  |_| \_\ \_\_|   |_|\__,_|\__, |___/
@@ -468,7 +468,7 @@
 
                 const shareIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>`;
                 const shareButton = createButton('Share Post', shareIcon, () => {
-                    const shareUrl = `https://foolydoodles.github.io/Player/#${postData.id}`;
+                    const shareUrl = `https://www.rxddit.com${postData.permalink}`;
                     if (navigator.share) {
                         navigator.share({ title: postData.title, url: shareUrl }).catch(err => showStatus('Could not share.', true));
                     } else {
