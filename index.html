@@ -152,7 +152,7 @@
 
     <div id="app-container">
         <div class="absolute top-4 left-4 z-30 flex flex-col gap-4">
-            <button id="menu-btn" title="Open Menu" class="bg-[#1A1A1B]/80 p-3 rounded-full hover:bg-[#0079D3] transition-colors">
+            <button id="menu-btn" title="Open Menu" class="bg-[#1A1A1B]/80 p-3 rounded-full transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
@@ -382,6 +382,57 @@
             }
         }
 
+        /**
+         * Applies a color theme to UI elements based on the current fetch mode.
+         */
+        function applyTheme() {
+            const menuBtn = document.getElementById('menu-btn');
+            const menuHeader = sideMenu.querySelector('h2');
+            const buttons = { video: videoModeBtn, image: imageModeBtn, both: bothModeBtn };
+
+            // --- Reset all theme elements to a default state ---
+            menuBtn.classList.remove('bg-red-500', 'bg-blue-500', 'bg-purple-500');
+            menuBtn.classList.add('bg-[#1A1A1B]/80');
+            
+            menuHeader.classList.remove('text-red-400', 'text-blue-400', 'text-purple-400');
+            menuHeader.classList.add('text-white');
+
+            Object.values(buttons).forEach(button => {
+                button.classList.remove('bg-red-500', 'bg-blue-500', 'bg-purple-500', 'text-white');
+                button.classList.add('text-gray-300');
+            });
+
+            // --- Apply active theme ---
+            switch (fetchMode) {
+                case 'video':
+                    menuBtn.classList.remove('bg-[#1A1A1B]/80');
+                    menuBtn.classList.add('bg-red-500');
+                    menuHeader.classList.remove('text-white');
+                    menuHeader.classList.add('text-red-400');
+                    buttons.video.classList.remove('text-gray-300');
+                    buttons.video.classList.add('bg-red-500', 'text-white');
+                    break;
+                case 'image':
+                    menuBtn.classList.remove('bg-[#1A1A1B]/80');
+                    menuBtn.classList.add('bg-blue-500');
+                    menuHeader.classList.remove('text-white');
+                    menuHeader.classList.add('text-blue-400');
+                    buttons.image.classList.remove('text-gray-300');
+                    buttons.image.classList.add('bg-blue-500', 'text-white');
+                    break;
+                case 'both':
+                    menuBtn.classList.remove('bg-[#1A1A1B]/80');
+                    menuBtn.classList.add('bg-purple-500');
+                    menuHeader.classList.remove('text-white');
+                    menuHeader.classList.add('text-purple-400');
+                    buttons.both.classList.remove('text-gray-300');
+                    buttons.both.classList.add('bg-purple-500', 'text-white');
+                    break;
+                default:
+                     // No specific theme, so it keeps the default bg-[#1A1A1B]/80
+            }
+        }
+
 
         /**
          * Appends content (videos or images) as slides to the container.
@@ -406,7 +457,7 @@
 
                 const createButton = (title, icon, onClick) => {
                     const button = document.createElement('button');
-                    button.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-[#0079D3] transition-colors';
+                    button.className = 'p-3 rounded-full text-white hover:bg-[#0079D3] transition-colors';
                     button.title = title;
                     button.innerHTML = icon;
                     if (onClick) {
@@ -457,7 +508,7 @@
                     downloadLink.href = `https://viddit.io/download?url=https://www.reddit.com${postData.permalink}`;
                     downloadLink.target = "_blank"; downloadLink.rel = "noopener noreferrer"; downloadLink.title = "Download Video";
                     downloadLink.innerHTML = downloadIcon;
-                    downloadLink.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-[#0079D3] transition-colors block';
+                    downloadLink.className = 'p-3 rounded-full text-white hover:bg-[#0079D3] transition-colors block';
                     downloadLink.onclick = (e) => e.stopPropagation();
 
                     const volumeControlContainer = document.createElement('div');
@@ -548,7 +599,7 @@
                     downloadLink.download = postData.url_overridden_by_dest.split('/').pop().split('?')[0] || 'reddit-image';
                     downloadLink.title = "Download Image";
                     downloadLink.innerHTML = downloadIcon;
-                    downloadLink.className = 'bg-black/50 p-3 rounded-full text-white hover:bg-[#0079D3] transition-colors block';
+                    downloadLink.className = 'p-3 rounded-full text-white hover:bg-[#0079D3] transition-colors block';
                     downloadLink.onclick = (e) => e.stopPropagation();
 
                     buttonContainer.append(downloadLink, shareButton);
@@ -739,22 +790,6 @@
             sideMenu.classList.remove('open');
         }
 
-        function updateModeButtons() {
-            const buttons = {
-                video: videoModeBtn,
-                image: imageModeBtn,
-                both: bothModeBtn
-            };
-            for (const mode in buttons) {
-                if (mode === fetchMode) {
-                    buttons[mode].classList.add('bg-[#0079D3]', 'text-white');
-                    buttons[mode].classList.remove('text-gray-300');
-                } else {
-                    buttons[mode].classList.remove('bg-[#0079D3]', 'text-white');
-                    buttons[mode].classList.add('text-gray-300');
-                }
-            }
-        }
         
         function setupModeButtons() {
             const modes = {
@@ -767,7 +802,7 @@
                 modes[mode].addEventListener('click', () => {
                     if (fetchMode === mode) return;
                     fetchMode = mode;
-                    updateModeButtons();
+                    applyTheme();
                     if (currentFeedUrl) {
                         const baseUrl = currentFeedUrl.split('&after=')[0].split('?')[0];
                         fetchContent(baseUrl + '?limit=50', true);
@@ -806,7 +841,7 @@
                     showStatus(`Found post in r/${subredditName}. Loading feed...`);
 
                     fetchMode = 'both'; 
-                    updateModeButtons();
+                    applyTheme();
                     const fullFeedUrl = `https://www.reddit.com/r/${encodeURIComponent(subredditName)}/hot.json?limit=50`;
                     
                     await fetchContent(fullFeedUrl, true, postId);
@@ -856,8 +891,8 @@
 
         // --- Initial Setup ---
         populatePopularFeeds();
-        updateModeButtons();
         setupModeButtons();
+        applyTheme();
 
         if (!window.location.hash.substring(1)) {
             getStartedBtn.addEventListener('click', () => {
