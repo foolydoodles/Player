@@ -442,6 +442,7 @@
                     const video = document.createElement('video');
                     video.loop = true; video.controls = false;
                     video.preload = 'metadata'; video.poster = postData.thumbnail;
+                    video.setAttribute('playsinline', ''); // Prevents fullscreen on iOS
                     video.dataset.hlsUrl = postData.media.reddit_video.hls_url;
                     
                     video.volume = globalVolume;
