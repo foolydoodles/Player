@@ -256,7 +256,6 @@
          * Checks if the device is an iPhone.
          */
         function isIphone() {
-            // Regular expression to check for 'iPhone' in the user agent or platform string.
             return /iPhone/.test(navigator.userAgent) || /iPhone/.test(navigator.platform);
         }
 
@@ -297,9 +296,6 @@
 
         /**
          * Fetches content from a Reddit JSON endpoint based on the current fetchMode.
-         * @param {string} url - The Reddit API URL to fetch.
-         * @param {boolean} [isNewFeed=false] - Whether this is a brand new feed request.
-         * @param {string|null} [initialPostId=null] - The ID of a post to start on within the fetched feed.
          */
         async function fetchContent(url, isNewFeed = false, initialPostId = null) {
             if (isNewFeed) {
@@ -337,7 +333,6 @@
 
                 if (isNewFeed) {
                     let startingIndex = 0;
-                    // If an initial post ID was provided, find its index
                     if (initialPostId) {
                         const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
                         const targetIndex = Array.from(slides).findIndex(s => s.id === `slide-${initialPostId}`);
@@ -368,6 +363,25 @@
             isLoadingMore = false;
             currentIndex = 0;
         }
+
+        /**
+         * Updates the volume UI (slider and button) on the active slide to reflect the global state.
+         */
+        function updateActiveVolumeUI() {
+            const activeSlide = document.querySelector('.content-slide.active');
+            if (!activeSlide) return;
+
+            const volumeSlider = activeSlide.querySelector('.volume-slider');
+            const volumeButton = activeSlide.querySelector('.volume-control-button');
+
+            if (volumeSlider) {
+                volumeSlider.value = isGloballyMuted ? 0 : globalVolume * 100;
+            }
+            if (volumeButton) {
+                volumeButton.innerHTML = (isGloballyMuted || globalVolume === 0) ? volumeOffIcon : volumeUpIcon;
+            }
+        }
+
 
         /**
          * Appends content (videos or images) as slides to the container.
@@ -461,6 +475,7 @@
                     volumeSliderContainer.appendChild(volumeSlider);
 
                     const volumeButton = createButton('Volume', isGloballyMuted ? volumeOffIcon : volumeUpIcon, null);
+                    volumeButton.classList.add('volume-control-button'); // Add class for easy selection
 
                     volumeButton.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -481,6 +496,8 @@
                             isGloballyMuted = !isGloballyMuted;
                             document.querySelectorAll('video').forEach(v => v.muted = isGloballyMuted);
                         }
+                        
+                        updateActiveVolumeUI();
 
                         if (!volumeSliderContainer.classList.contains('hidden')) {
                             volumeTimeout = setTimeout(() => {
@@ -498,16 +515,13 @@
                             v.volume = globalVolume;
                             v.muted = isGloballyMuted;
                         });
+                        
+                        updateActiveVolumeUI();
 
                         clearTimeout(volumeTimeout);
                         volumeTimeout = setTimeout(() => {
                             volumeSliderContainer.classList.add('hidden');
                         }, 3000);
-                    });
-
-                    video.addEventListener('volumechange', () => {
-                        volumeSlider.value = video.muted ? 0 : video.volume * 100;
-                        volumeButton.innerHTML = (video.muted || video.volume === 0) ? volumeOffIcon : volumeUpIcon;
                     });
                     
                     volumeControlContainer.append(volumeSliderContainer, volumeButton);
@@ -614,6 +628,7 @@
                 console.warn("Autoplay failed, retrying with mute:", e);
                 isGloballyMuted = true;
                 document.querySelectorAll('video').forEach(v => v.muted = true);
+                updateActiveVolumeUI(); // Sync UI after force-muting
                 videoElement.play();
             });
 
@@ -655,6 +670,7 @@
                 }
             });
             currentIndex = index;
+            updateActiveVolumeUI(); // Sync UI for the newly active slide
 
             if (slides.length > 1 && slides.length - currentIndex < 5) {
                 loadMoreContent(true);
@@ -667,10 +683,9 @@
         function changeSlide(direction) {
             if (isNavigating) return;
 
-            // If this is the first scroll in a deep link session, clean the URL
             if (isDeepLinkSession) {
                 history.pushState("", document.title, window.location.pathname + window.location.search);
-                isDeepLinkSession = false; // Ensure this only happens once
+                isDeepLinkSession = false; 
             }
 
             const slides = document.querySelectorAll('.content-slide:not(#placeholder)');
@@ -761,14 +776,12 @@
         
         /**
          * Handles loading content from a deep link (URL with a hash).
-         * Fetches the post's subreddit first, then loads the whole feed.
          */
         async function handleDeepLink() {
             if (!window.location.hash) return;
             const postId = window.location.hash.substring(1);
             if (!postId) return;
 
-            // Show a loading state on the placeholder
             const placeholder = document.getElementById('placeholder');
             const placeholderText = placeholder?.querySelector('p');
             const getStartedBtn = document.getElementById('get-started-btn');
@@ -779,7 +792,6 @@
                 showStatus("Fetching shared post...");
 
                 try {
-                    // Step 1: Fetch the single post to get its subreddit
                     const singlePostUrl = `https://www.reddit.com/by_id/t3_${postId}.json`;
                     const response = await fetch(PROXY_URL + singlePostUrl);
                     if (!response.ok) throw new Error("Could not find the shared post.");
@@ -791,14 +803,12 @@
                     const subredditName = post.subreddit;
                     showStatus(`Found post in r/${subredditName}. Loading feed...`);
 
-                    // Step 2: Fetch the entire feed for that subreddit
-                    fetchMode = 'both'; // Default to 'both' for shared links to ensure it's found
+                    fetchMode = 'both'; 
                     updateModeButtons();
                     const fullFeedUrl = `https://www.reddit.com/r/${encodeURIComponent(subredditName)}/hot.json?limit=50`;
                     
-                    // Call fetchContent with the full feed URL, telling it to start on the specific post
                     await fetchContent(fullFeedUrl, true, postId);
-                    isDeepLinkSession = true; // Set flag indicating session started with a deep link
+                    isDeepLinkSession = true;
 
                 } catch (error) {
                     console.error('Deep link error:', error);
@@ -818,6 +828,7 @@
             }
         }
 
+        // --- Event Listener Setup ---
         menuBtn.addEventListener('click', openMenu);
         closeMenuBtn.addEventListener('click', closeMenu);
         menuOverlay.addEventListener('click', closeMenu);
