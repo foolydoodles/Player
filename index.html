@@ -162,8 +162,8 @@
         <main id="content-container">
             <div id="placeholder" class="content-slide active flex flex-col justify-center items-center text-center text-gray-300 p-8">
                 <pre id="ascii-art" class="text-xs md:text-sm leading-tight text-center mb-6 font-mono">
-  ______   ____  _             
- |  _ \ \  |  _ \| | __ _ _   _ ___ 
+  ______   ____  _           
+ |  _ \ \  |  _ \| | __ _ _  _ ___ 
  | |_) \ \ | |_) | |/ _` | | | / __|
  |  _ < \ \|  __/| | (_| | |_| \__ \
  |_| \_\ \_\_|   |_|\__,_|\__, |___/
@@ -239,6 +239,9 @@
         let isGloballyMuted = false; // Persistent mute state
         let isDeepLinkSession = false; // Flag to check if session started from a deep link
 
+        // --- Proxy for CORS ---
+        const PROXY_URL = 'https://corsproxy.io/?';
+
         const POPULAR_SUBREDDITS = [
             'popular', 'videos', 'funny', 'aww', 'Unexpected', 'nextfuckinglevel', 'Damnthatsinteresting', 
             'Whatcouldgowrong', 'IdiotsInCars', 'maybemaybemaybe', 'PublicFreakout', 'fightporn', 'AbruptChaos',
@@ -306,7 +309,7 @@
             currentFeedUrl = url;
 
             try {
-                const response = await fetch(currentFeedUrl);
+                const response = await fetch(PROXY_URL + currentFeedUrl);
                 if (!response.ok) throw new Error(`Could not fetch content. Subreddit may be private or banned.`);
                 
                 const data = await response.json();
@@ -562,7 +565,8 @@
                 showStatus(`Loading more content...`);
             }
             try {
-                const response = await fetch(`${currentFeedUrl.split('?')[0]}?limit=50&after=${currentAfterToken}`);
+                const fetchUrl = `${currentFeedUrl.split('?')[0]}?limit=50&after=${currentAfterToken}`;
+                const response = await fetch(PROXY_URL + fetchUrl);
                 if (!response.ok) throw new Error('Failed to load more content.');
                 const data = await response.json();
                 
@@ -777,7 +781,7 @@
                 try {
                     // Step 1: Fetch the single post to get its subreddit
                     const singlePostUrl = `https://www.reddit.com/by_id/t3_${postId}.json`;
-                    const response = await fetch(singlePostUrl);
+                    const response = await fetch(PROXY_URL + singlePostUrl);
                     if (!response.ok) throw new Error("Could not find the shared post.");
                     const postData = await response.json();
                     
